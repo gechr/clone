@@ -1,0 +1,82 @@
+name: release
+
+permissions: {}
+
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+
+
+concurrency:
+  group: ci-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Import GPG keys and verify tag
+        run: |
+          # Fetch keys; import only the first key
+          KEYS_JSON=$(curl -sf https://api.github.com/users/gechr/gpg_keys)
+          echo "$KEYS_JSON" | jq -r '.[0].raw_key' | gpg --quiet --import
+          ALLOWED_FINGERPRINT=$(gpg --list-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
+
+          # Verify the tag signature
+          TAG="${GITHUB_REF_NAME}"
+          GPG_OUTPUT=$(git verify-tag --raw "$TAG" 2>&1 || true)
+          SIGNING_FINGERPRINT=$(echo "$GPG_OUTPUT" | awk '/VALIDSIG/ {print $3}')
+          SIGNER_NAME=$(echo "$GPG_OUTPUT" | awk '/GOODSIG/ {$1=$2=$3=""; print substr($0,4)}')
+
+          if [[ "$SIGNING_FINGERPRINT" != "$ALLOWED_FINGERPRINT" ]]; then
+            echo "::error::Tag $TAG is signed with unauthorized key: $SIGNING_FINGERPRINT (expected: $ALLOWED_FINGERPRINT)"
+            exit 1
+          fi
+
+          echo "Verified tag [$TAG] - signer: $SIGNER_NAME"
+
+  publish:
+    needs: verify-tag
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    environment: release
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/create-github-app-token@f8d387b68d61c58ab83c6c016672934102569859 # v3.0.0
+        id: app-token
+        with:
+          app-id: ${{ vars.HOMEBREW_APP_ID }}
+          private-key: ${{ secrets.HOMEBREW_APP_PRIVATE_KEY }}
+          repositories: homebrew-tap
+
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - uses: goreleaser/goreleaser-action@ec59f474b9834571250b370d4735c50f8e2d1e29 # v7.0.0
+        with:
+          distribution: goreleaser
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - uses: gechr/homebrew-publish-formula@385a65813500f5cd940a41a0deb2f72b6121435f # v1.0.1
+        with:
+          name: clone
+          desc: "Clone GitHub repositories in parallel"
+          token: ${{ steps.app-token.outputs.token }}
+          version: ${{ github.ref_name }}
+          homepage: https://github.com/${{ github.repository }}
