@@ -73,7 +73,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-      - uses: gechr/homebrew-publish-formula@385a65813500f5cd940a41a0deb2f72b6121435f # v1.0.1
+      - uses: gechr/homebrew-publish-formula@86cbce70900a88d186c3d78937830bd50814b22e # v1.0.2
         with:
           name: clone
           desc: "Clone GitHub repositories in parallel"
