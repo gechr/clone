@@ -14,9 +14,9 @@ import (
 	"github.com/gechr/clog"
 )
 
-const (
-	version = "dev"
+var version = "dev"
 
+const (
 	defaultParallelism = 20
 	keywordAll         = "all"
 	methodSSH          = "ssh"

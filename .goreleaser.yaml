@@ -21,7 +21,7 @@ builds:
       - -trimpath
       - -mod=readonly
     ldflags:
-      - -s -w
+      - -s -w -X main.version={{ .Version }}
 
 checksum:
   name_template: checksums.txt
