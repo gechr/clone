@@ -44,7 +44,7 @@ jobs:
 
   publish:
     needs: verify-tag
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     permissions:
       contents: write
     environment: release
@@ -73,7 +73,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-      - uses: gechr/homebrew-publish-formula@86cbce70900a88d186c3d78937830bd50814b22e # v1.0.2
+      - uses: gechr/homebrew-publish-formula@65dd55a61ec1be6c118e94cf20b5292916d6ce0d # v1.0.2
         with:
           name: clone
           desc: "Clone GitHub repositories in parallel"

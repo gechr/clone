@@ -71,8 +71,8 @@ type CLI struct {
 	Quiet       bool   `name:"quiet"       help:"Suppress informational output"                                          short:"q"                                           clib:"terse='Quiet',group='Options/4'"                                                                                            xor:"verbosity"`
 	Verbose     bool   `name:"verbose"     help:"Show verbose output"                                                    short:"v"                                           clib:"terse='Verbose',group='Options/4'"                                                                                          xor:"verbosity"`
 
-	Color   clog.ColorMode `name:"color"   help:"When to use color" clib:"terse='Color mode',complete='values=auto always never',group='Miscellaneous/1'" default:"auto"`
-	Version bool           `name:"version" help:"Print version"     clib:"terse='Version',group='Miscellaneous/3'"`
+	Color   clog.ColorMode `name:"color"   help:"When to use color"           clib:"terse='Color mode',complete='values=auto always never',group='Miscellaneous/1'" default:"auto"`
+	Version bool           `name:"version" help:"Print version"     short:"V" clib:"terse='Version',group='Miscellaneous/3'"`
 
 	binGit string `kong:"-"`
 	binJJ  string `kong:"-"`
@@ -191,11 +191,11 @@ func cloneHelpOrdering() help.Option {
 				}
 			}
 
-			if helpGroup != nil {
-				otherGroups = append(otherGroups, helpGroup)
-			}
 			if versionGroup != nil {
 				otherGroups = append(otherGroups, versionGroup)
+			}
+			if helpGroup != nil {
+				otherGroups = append(otherGroups, helpGroup)
 			}
 
 			sections[i].Content = otherGroups
