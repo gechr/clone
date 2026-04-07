@@ -45,6 +45,7 @@ type gitProgress struct {
 	Files         phaseProgress
 	FilterContent phaseProgress
 	Transfer      transferStats
+	Transferring  bool
 }
 
 type lfsProgress struct {
@@ -95,7 +96,11 @@ func (p *gitProgress) apply(line string) bool {
 	case strings.HasPrefix(line, "Updating files:"):
 		return p.updatePhase(&p.Files, strings.TrimPrefix(line, "Updating files:"), false)
 	case strings.HasPrefix(line, "Filtering content:"):
-		return p.updatePhase(&p.FilterContent, strings.TrimPrefix(line, "Filtering content:"), true)
+		return p.updatePhase(
+			&p.FilterContent,
+			strings.TrimPrefix(line, "Filtering content:"),
+			false,
+		)
 	default:
 		return false
 	}
@@ -106,6 +111,7 @@ func (p *gitProgress) updatePhase(phase *phaseProgress, line string, trackTransf
 		phase.Current = current
 		phase.Total = total
 	}
+	p.Transferring = trackTransfer
 	if trackTransfer {
 		p.Transfer = readTransferStats(line)
 	}

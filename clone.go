@@ -91,7 +91,11 @@ func (c *cloneCallback) Progress(p *gitProgress) {
 
 	c.progress.Git = *p
 	if c.transferStats != nil {
-		c.transferStats.Store(&p.Transfer)
+		if p.Transferring {
+			c.transferStats.Store(&p.Transfer)
+		} else {
+			c.transferStats.Store(nil)
+		}
 	}
 	c.sendProgressLocked()
 }

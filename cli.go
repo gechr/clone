@@ -122,7 +122,7 @@ func (c *CLI) Validate() error {
 }
 
 func buildParser(cli *CLI) *kong.Kong {
-	th := theme.New()
+	th := theme.Default()
 	renderer := help.NewRenderer(th)
 	return kong.Must(
 		cli,

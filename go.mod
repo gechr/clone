@@ -8,7 +8,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.2
 	github.com/alecthomas/kong v1.15.0
 	github.com/cli/go-gh/v2 v2.13.0
-	github.com/gechr/clib v0.2.12
+	github.com/gechr/clib v0.3.0
 	github.com/gechr/clog v0.8.3
 	github.com/stretchr/testify v1.11.1
 )
