@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gechr/clib/human"
 )
 
 type gitCallback interface {
@@ -30,6 +32,11 @@ type phaseProgress struct {
 	Total   int
 }
 
+type transferStats struct {
+	Bytes float64 // bytes received so far
+	Speed float64 // bytes per second
+}
+
 type gitProgress struct {
 	Counted       phaseProgress
 	Compressed    phaseProgress
@@ -37,6 +44,7 @@ type gitProgress struct {
 	Deltas        phaseProgress
 	Files         phaseProgress
 	FilterContent phaseProgress
+	Transfer      transferStats
 }
 
 type lfsProgress struct {
@@ -69,29 +77,37 @@ const (
 func (p *gitProgress) apply(line string) bool {
 	switch {
 	case strings.HasPrefix(line, "remote: Counting objects:"):
-		return p.updatePhase(&p.Counted, strings.TrimPrefix(line, "remote: Counting objects:"))
+		return p.updatePhase(
+			&p.Counted,
+			strings.TrimPrefix(line, "remote: Counting objects:"),
+			false,
+		)
 	case strings.HasPrefix(line, "remote: Compressing objects:"):
 		return p.updatePhase(
 			&p.Compressed,
 			strings.TrimPrefix(line, "remote: Compressing objects:"),
+			false,
 		)
 	case strings.HasPrefix(line, "Receiving objects:"):
-		return p.updatePhase(&p.Objects, strings.TrimPrefix(line, "Receiving objects:"))
+		return p.updatePhase(&p.Objects, strings.TrimPrefix(line, "Receiving objects:"), true)
 	case strings.HasPrefix(line, "Resolving deltas:"):
-		return p.updatePhase(&p.Deltas, strings.TrimPrefix(line, "Resolving deltas:"))
+		return p.updatePhase(&p.Deltas, strings.TrimPrefix(line, "Resolving deltas:"), false)
 	case strings.HasPrefix(line, "Updating files:"):
-		return p.updatePhase(&p.Files, strings.TrimPrefix(line, "Updating files:"))
+		return p.updatePhase(&p.Files, strings.TrimPrefix(line, "Updating files:"), false)
 	case strings.HasPrefix(line, "Filtering content:"):
-		return p.updatePhase(&p.FilterContent, strings.TrimPrefix(line, "Filtering content:"))
+		return p.updatePhase(&p.FilterContent, strings.TrimPrefix(line, "Filtering content:"), true)
 	default:
 		return false
 	}
 }
 
-func (p *gitProgress) updatePhase(phase *phaseProgress, line string) bool {
+func (p *gitProgress) updatePhase(phase *phaseProgress, line string, trackTransfer bool) bool {
 	if current, total, ok := readProgressCounts(line); ok {
 		phase.Current = current
 		phase.Total = total
+	}
+	if trackTransfer {
+		p.Transfer = readTransferStats(line)
 	}
 	return true
 }
@@ -366,6 +382,37 @@ func readProgressCounts(line string) (int, int, bool) {
 	}
 
 	return current, total, true
+}
+
+// readTransferStats extracts transfer information after the closing paren in a
+// git progress line. Git formats throughput as:
+//
+//	", 27.61 MiB | 13.58 MiB/s"
+//
+// See git/progress.c throughput_string() for the canonical format.
+func readTransferStats(line string) transferStats {
+	closeIdx := strings.IndexByte(line, ')')
+	if closeIdx < 0 || closeIdx+1 >= len(line) {
+		return transferStats{}
+	}
+	rest := strings.TrimLeft(line[closeIdx+1:], ", ")
+	rest = strings.TrimSuffix(rest, ", done.")
+	rest = strings.TrimSuffix(rest, "done.")
+	rest = strings.TrimRight(rest, ", ")
+	if rest == "" {
+		return transferStats{}
+	}
+
+	// Split on " | " to get bytes and speed parts.
+	// Format: "27.61 MiB | 13.58 MiB/s"
+	bytesStr, speedStr, hasSpeed := strings.Cut(rest, " | ")
+
+	var stats transferStats
+	stats.Bytes = human.ParseByteSize(strings.TrimSpace(bytesStr))
+	if hasSpeed {
+		stats.Speed = human.ParseByteSize(strings.TrimSuffix(strings.TrimSpace(speedStr), "/s"))
+	}
+	return stats
 }
 
 func readLFSProgress(line string) (lfsProgress, bool) {

@@ -138,7 +138,7 @@ func run() error {
 	}
 
 	clog.SetColorMode(cli.Color)
-	clog.SetVerbose(cli.Verbose)
+	clog.SetVerbose(cli.Debug)
 
 	binGit, binJJ, depsErr := checkDeps(cli.VCS)
 	if depsErr != nil {

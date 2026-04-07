@@ -11,7 +11,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
+	"charm.land/lipgloss/v2"
+	"github.com/gechr/clib/human"
 	"github.com/gechr/clog"
 	"github.com/gechr/clog/fx"
 	"github.com/gechr/clog/fx/bar"
@@ -65,10 +69,11 @@ func NewCloner(target CloneTarget) *Cloner {
 }
 
 type cloneCallback struct {
-	mu           sync.Mutex
-	update       *clog.Update
-	progress     cloneProgress
-	lastProgress int
+	mu            sync.Mutex
+	update        *clog.Update
+	progress      cloneProgress
+	lastProgress  int
+	transferStats *atomic.Pointer[transferStats] // shared with widget; nil when not verbose
 }
 
 func (c *cloneCallback) send() {
@@ -83,6 +88,9 @@ func (c *cloneCallback) Progress(p *gitProgress) {
 	defer c.mu.Unlock()
 
 	c.progress.Git = *p
+	if c.transferStats != nil {
+		c.transferStats.Store(&p.Transfer)
+	}
 	c.sendProgressLocked()
 }
 
@@ -107,18 +115,58 @@ func (c *cloneCallback) sendProgressLocked() {
 func (c *cloneCallback) LocalSideband(string, *sidebandTerminator)  {}
 func (c *cloneCallback) RemoteSideband(string, *sidebandTerminator) {}
 
-func cloneBarOptions() []bar.Option {
+const transferStatsDelay = 10 * time.Second
+
+func cloneBarOptions(verbose bool, stats *atomic.Pointer[transferStats]) []bar.Option {
+	percentWidget := widget.Percent(
+		widget.WithMinimumPercent(1),
+		widget.WithProgressGradient(bar.DefaultGradient()...),
+	)
+	dim := new(lipgloss.NewStyle().Faint(true))
+	rightWidget := widget.Widgets(
+		percentWidget,
+		transferStatsWidget(stats, dim, verbose),
+	)
+
 	return []bar.Option{
 		bar.WithStyle(bar.Thin),
 		bar.WithPendingMode(bar.PendingHide),
 		bar.WithProgressGradient(bar.DefaultGradient()...),
 		bar.WithWidgetLeft(widget.None()),
-		bar.WithWidgetRight(widget.Percent(
-			widget.WithMinimumPercent(1),
-			widget.WithProgressGradient(bar.DefaultGradient()...),
-		)),
+		bar.WithWidgetRight(rightWidget),
 		bar.WithMaxWidth(15), //nolint:mnd // bar width
 		bar.WithPlacement(bar.PlaceAligned),
+	}
+}
+
+func transferStatsWidget(
+	stats *atomic.Pointer[transferStats],
+	style *lipgloss.Style,
+	verbose bool,
+) bar.Widget {
+	return func(s bar.State) string {
+		if !verbose && s.Elapsed < transferStatsDelay {
+			return ""
+		}
+		p := stats.Load()
+		if p == nil || (p.Bytes == 0 && p.Speed == 0) {
+			return ""
+		}
+		var parts []string
+		if p.Bytes > 0 {
+			parts = append(parts, human.FormatIECBytes(p.Bytes))
+		}
+		if p.Speed > 0 {
+			parts = append(parts, human.FormatIECBytes(p.Speed)+"/s")
+		}
+		if len(parts) == 0 {
+			return ""
+		}
+		text := "(" + strings.Join(parts, ", ") + ")"
+		if style != nil {
+			return style.Render(text)
+		}
+		return text
 	}
 }
 
@@ -213,7 +261,7 @@ func executeClones(ctx context.Context, cli *CLI, targets []CloneTarget) error {
 	if cli.Quiet {
 		cloneErr = cloneQuiet(ctx, cloners, cli.Parallelism)
 	} else {
-		cloneErr = cloneWithProgress(ctx, cloners, cli.Parallelism)
+		cloneErr = cloneWithProgress(ctx, cloners, cli.Parallelism, cli.Verbose)
 	}
 
 	if cloneErr != nil {
@@ -286,7 +334,7 @@ func cloneQuiet(ctx context.Context, cloners []*Cloner, parallelism int) error {
 			}
 			defer func() { <-sem }()
 
-			if err := cloner.Run(ctx, nil); err != nil {
+			if err := cloner.Run(ctx, nil, nil); err != nil {
 				mu.Lock()
 				failed = append(failed, cloner)
 				errs = append(errs, err)
@@ -308,15 +356,17 @@ func cloneWithProgress(
 	ctx context.Context,
 	cloners []*Cloner,
 	parallelism int,
+	verbose bool,
 ) error {
 	group := clog.Group(ctx, cloneGroupOptions(parallelism, len(cloners))...)
 	tasks := make([]cloneTask, 0, len(cloners))
 
 	for _, cloner := range cloners {
+		stats := &atomic.Pointer[transferStats]{}
 		b := clog.Bar(
 			"Cloning",
 			1,
-			cloneBarOptions()...).
+			cloneBarOptions(verbose, stats)...).
 			Symbol("·").
 			Spinner().
 			Link("repository", cloner.RepoURL, cloner.Label)
@@ -324,7 +374,7 @@ func cloneWithProgress(
 			b = b.Path("destination", cloner.Dest)
 		}
 		result := group.Add(b).Progress(func(ctx context.Context, update *clog.Update) error {
-			return cloner.Run(ctx, update)
+			return cloner.Run(ctx, update, stats)
 		})
 		tasks = append(tasks, cloneTask{
 			cloner: cloner,
@@ -354,7 +404,11 @@ func cloneWithProgress(
 	return errors.Join(errs...)
 }
 
-func (c *Cloner) Run(ctx context.Context, update *clog.Update) error {
+func (c *Cloner) Run(
+	ctx context.Context,
+	update *clog.Update,
+	stats *atomic.Pointer[transferStats],
+) error {
 	if update != nil {
 		update.SetTotal(1).SetProgress(0).Send()
 	}
@@ -362,9 +416,9 @@ func (c *Cloner) Run(ctx context.Context, update *clog.Update) error {
 	var err error
 	switch c.VCS {
 	case vcsJJ:
-		err = c.runJJClone(ctx, update)
+		err = c.runJJClone(ctx, update, stats)
 	default:
-		err = c.runGitClone(ctx, update)
+		err = c.runGitClone(ctx, update, stats)
 	}
 	if err != nil {
 		if ctx.Err() != nil {
@@ -416,14 +470,22 @@ func (c *Cloner) checkoutPR(ctx context.Context) error {
 	return c.runCommandInDir(ctx, c.Dest, c.BinGit, []string{"checkout", c.PRHeadRef, "--quiet"})
 }
 
-func (c *Cloner) runJJClone(ctx context.Context, update *clog.Update) error {
-	if err := c.runGitClone(ctx, update); err != nil {
+func (c *Cloner) runJJClone(
+	ctx context.Context,
+	update *clog.Update,
+	stats *atomic.Pointer[transferStats],
+) error {
+	if err := c.runGitClone(ctx, update, stats); err != nil {
 		return err
 	}
 	return c.runCommandInDir(ctx, c.Dest, c.BinJJ, c.jjInitArgs())
 }
 
-func (c *Cloner) runGitClone(ctx context.Context, update *clog.Update) error {
+func (c *Cloner) runGitClone(
+	ctx context.Context,
+	update *clog.Update,
+	stats *atomic.Pointer[transferStats],
+) error {
 	args := c.gitCloneArgs(update != nil)
 	if update == nil {
 		return c.runCommandInDir(ctx, "", c.BinGit, args)
@@ -455,7 +517,7 @@ func (c *Cloner) runGitClone(ctx context.Context, update *clog.Update) error {
 		return err
 	}
 
-	cb := &cloneCallback{update: update}
+	cb := &cloneCallback{update: update, transferStats: stats}
 	lfsCtx, cancelLFS := context.WithCancel(ctx)
 	defer cancelLFS()
 
