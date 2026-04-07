@@ -7,6 +7,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestReadProgressCounts(t *testing.T) {
@@ -50,12 +53,9 @@ func TestReadProgressCounts(t *testing.T) {
 			t.Parallel()
 
 			current, total, ok := readProgressCounts(test.line)
-			if ok != test.ok {
-				t.Fatalf("ok = %v, want %v", ok, test.ok)
-			}
-			if current != test.current || total != test.total {
-				t.Fatalf("got (%d, %d), want (%d, %d)", current, total, test.current, test.total)
-			}
+			require.Equal(t, test.ok, ok)
+			require.Equal(t, test.current, current)
+			require.Equal(t, test.total, total)
 		})
 	}
 }
@@ -65,45 +65,24 @@ func TestGitProgressApply(t *testing.T) {
 
 	progress := gitProgress{}
 
-	if !progress.apply("remote: Counting objects: 100% (10/10), done.") {
-		t.Fatal("apply(counting) = false")
-	}
-	if !progress.apply("Receiving objects:  50% (5/10), 1.23 MiB | 1.23 MiB/s") {
-		t.Fatal("apply(receiving) = false")
-	}
-	if !progress.apply("Resolving deltas: 100% (3/3), done.") {
-		t.Fatal("apply(resolving) = false")
-	}
-	if !progress.apply("Updating files: 100% (20/20), done.") {
-		t.Fatal("apply(updating) = false")
-	}
-	if !progress.apply("Filtering content: 100% (1/1), 233.51 MiB | 6.14 MiB/s, done.") {
-		t.Fatal("apply(filtering) = false")
-	}
-	if progress.apply("remote: Enumerating objects: 42, done.") {
-		t.Fatal("apply(enumerating) = true, want false")
-	}
-
-	if got, want := progress.Current(), 39; got != want {
-		t.Fatalf("Current() = %d, want %d", got, want)
-	}
-	if got, want := progress.Total(), 44; got != want {
-		t.Fatalf("Total() = %d, want %d", got, want)
-	}
+	require.True(t, progress.apply("remote: Counting objects: 100% (10/10), done."))
+	require.True(t, progress.apply("Receiving objects:  50% (5/10), 1.23 MiB | 1.23 MiB/s"))
+	require.True(t, progress.apply("Resolving deltas: 100% (3/3), done."))
+	require.True(t, progress.apply("Updating files: 100% (20/20), done."))
+	require.True(t, progress.apply("Filtering content: 100% (1/1), 233.51 MiB | 6.14 MiB/s, done."))
+	require.False(t, progress.apply("remote: Enumerating objects: 42, done."))
+	require.Equal(t, 39, progress.Current())
+	require.Equal(t, 44, progress.Total())
 }
 
 func TestGitProgressOverall(t *testing.T) {
 	t.Parallel()
 
 	p := gitProgress{}
-	if got := p.Overall(); got != 0 {
-		t.Fatalf("Overall() = %f, want 0", got)
-	}
+	require.InDelta(t, 0.0, p.Overall(), 1e-9)
 
 	p.Objects = phaseProgress{Current: 50, Total: 100}
-	if got, want := p.Overall(), 0.5; got != want {
-		t.Fatalf("Overall() = %f, want %f", got, want)
-	}
+	require.InDelta(t, 0.5, p.Overall(), 1e-9)
 }
 
 func TestCloneProgressDisplayCurrent(t *testing.T) {
@@ -210,9 +189,7 @@ func TestCloneProgressDisplayCurrent(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := test.p.DisplayCurrent(); got != test.want {
-				t.Fatalf("DisplayCurrent() = %d, want %d", got, test.want)
-			}
+			require.Equal(t, test.want, test.p.DisplayCurrent())
 		})
 	}
 }
@@ -221,19 +198,13 @@ func TestCloneProgressDisplayTotal(t *testing.T) {
 	t.Parallel()
 
 	p := cloneProgress{}
-	if got, want := p.DisplayTotal(), cloneDisplayTotal-filesWeight-checkoutWeight; got != want {
-		t.Fatalf("DisplayTotal() = %d, want %d", got, want)
-	}
+	require.Equal(t, cloneDisplayTotal-filesWeight-checkoutWeight, p.DisplayTotal())
 
 	p.Git.Files = phaseProgress{Current: 1, Total: 2}
-	if got, want := p.DisplayTotal(), cloneDisplayTotal-checkoutWeight; got != want {
-		t.Fatalf("DisplayTotal() with files = %d, want %d", got, want)
-	}
+	require.Equal(t, cloneDisplayTotal-checkoutWeight, p.DisplayTotal())
 
 	p.LFS = lfsProgress{CurrentFile: 1, TotalFiles: 2}
-	if got, want := p.DisplayTotal(), cloneDisplayTotal; got != want {
-		t.Fatalf("DisplayTotal() with LFS = %d, want %d", got, want)
-	}
+	require.Equal(t, cloneDisplayTotal, p.DisplayTotal())
 }
 
 func TestCloneProgressDisplayStateCapsIncompleteTotal(t *testing.T) {
@@ -246,15 +217,9 @@ func TestCloneProgressDisplayStateCapsIncompleteTotal(t *testing.T) {
 	}
 
 	current, total := p.DisplayState(0)
-	if want := cloneDisplayTotal - filesWeight - checkoutWeight; total != want {
-		t.Fatalf("DisplayState() total = %d, want %d", total, want)
-	}
-	if current >= total {
-		t.Fatalf("DisplayState() current = %d, want less than total %d", current, total)
-	}
-	if want := pendingProgressValue(total); current != want {
-		t.Fatalf("DisplayState() current = %d, want %d", current, want)
-	}
+	require.Equal(t, cloneDisplayTotal-filesWeight-checkoutWeight, total)
+	require.Less(t, current, total)
+	require.Equal(t, pendingProgressValue(total), current)
 }
 
 func TestCloneProgressDisplayStateParksNonLFSCheckoutAtPending(t *testing.T) {
@@ -271,12 +236,8 @@ func TestCloneProgressDisplayStateParksNonLFSCheckoutAtPending(t *testing.T) {
 	}
 
 	current, total := p.DisplayState(0)
-	if want := cloneDisplayTotal - checkoutWeight; total != want {
-		t.Fatalf("DisplayState() total = %d, want %d", total, want)
-	}
-	if want := pendingProgressValue(total); current != want {
-		t.Fatalf("DisplayState() current = %d, want %d", current, want)
-	}
+	require.Equal(t, cloneDisplayTotal-checkoutWeight, total)
+	require.Equal(t, pendingProgressValue(total), current)
 }
 
 func TestCloneProgressMessage(t *testing.T) {
@@ -338,9 +299,7 @@ func TestCloneProgressMessage(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := test.p.Message(); got != test.want {
-				t.Fatalf("Message() = %q, want %q", got, test.want)
-			}
+			require.Equal(t, test.want, test.p.Message())
 		})
 	}
 }
@@ -349,38 +308,22 @@ func TestReadLFSProgress(t *testing.T) {
 	t.Parallel()
 
 	progress, ok := readLFSProgress("checkout 5/10 50/100 assets/model.bin")
-	if !ok {
-		t.Fatal("readLFSProgress() = false")
-	}
-	if progress.Operation != "checkout" {
-		t.Fatalf("Operation = %q, want %q", progress.Operation, "checkout")
-	}
-	if progress.CurrentFile != 5 || progress.TotalFiles != 10 {
-		t.Fatalf("file counts = (%d, %d), want (5, 10)", progress.CurrentFile, progress.TotalFiles)
-	}
-	if progress.CurrentBytes != 50 || progress.TotalBytes != 100 {
-		t.Fatalf(
-			"byte counts = (%d, %d), want (50, 100)",
-			progress.CurrentBytes,
-			progress.TotalBytes,
-		)
-	}
-	if progress.Name != "assets/model.bin" {
-		t.Fatalf("Name = %q, want %q", progress.Name, "assets/model.bin")
-	}
+	require.True(t, ok)
+	require.Equal(t, "checkout", progress.Operation)
+	require.Equal(t, 5, progress.CurrentFile)
+	require.Equal(t, 10, progress.TotalFiles)
+	require.Equal(t, int64(50), progress.CurrentBytes)
+	require.Equal(t, int64(100), progress.TotalBytes)
+	require.Equal(t, "assets/model.bin", progress.Name)
 }
 
 func TestRelayLFSProgress(t *testing.T) {
 	t.Parallel()
 
 	file, err := os.CreateTemp(t.TempDir(), "lfs-progress-*")
-	if err != nil {
-		t.Fatalf("CreateTemp() error = %v", err)
-	}
+	require.NoError(t, err)
 	path := file.Name()
-	if closeErr := file.Close(); closeErr != nil {
-		t.Fatalf("Close() error = %v", closeErr)
-	}
+	require.NoError(t, file.Close())
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -394,35 +337,27 @@ func TestRelayLFSProgress(t *testing.T) {
 	}()
 
 	writer, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
-	if err != nil {
-		t.Fatalf("OpenFile() error = %v", err)
-	}
+	require.NoError(t, err)
 	if _, err := writer.WriteString("checkout 5/10 50/100 assets/model.bin\n"); err != nil {
 		_ = writer.Close()
-		t.Fatalf("WriteString() error = %v", err)
+		require.NoError(t, err)
 	}
-	if err := writer.Close(); err != nil {
-		t.Fatalf("Close() error = %v", err)
-	}
+	require.NoError(t, writer.Close())
 
 	select {
 	case progress := <-progressCh:
-		if progress.Name != "assets/model.bin" {
-			t.Fatalf("Name = %q, want %q", progress.Name, "assets/model.bin")
-		}
+		require.Equal(t, "assets/model.bin", progress.Name)
 	case <-time.After(5 * lfsPollInterval):
-		t.Fatal("timed out waiting for LFS progress")
+		require.FailNow(t, "timed out waiting for LFS progress")
 	}
 
 	cancel()
 
 	select {
 	case err := <-errCh:
-		if err != nil {
-			t.Fatalf("relayLFSProgress() error = %v", err)
-		}
+		require.NoError(t, err)
 	case <-time.After(5 * lfsPollInterval):
-		t.Fatal("timed out waiting for relayLFSProgress to stop")
+		require.FailNow(t, "timed out waiting for relayLFSProgress to stop")
 	}
 }
 
@@ -434,56 +369,34 @@ func TestReadUntilCRLF(t *testing.T) {
 	)
 
 	line, err := readUntilCRLF(reader)
-	if err != nil {
-		t.Fatalf("readUntilCRLF() error = %v", err)
-	}
-	if got, want := line, "Receiving objects: 1% (1/100)\r"; got != want {
-		t.Fatalf("line = %q, want %q", got, want)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "Receiving objects: 1% (1/100)\r", line)
 
 	line, err = readUntilCRLF(reader)
-	if err != nil {
-		t.Fatalf("readUntilCRLF() error = %v", err)
-	}
-	if got, want := line, "Checking connectivity\n"; got != want {
-		t.Fatalf("line = %q, want %q", got, want)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "Checking connectivity\n", line)
 
 	line, err = readUntilCRLF(reader)
-	if err != nil {
-		t.Fatalf("readUntilCRLF() error = %v", err)
-	}
-	if got, want := line, "fatal: boom"; got != want {
-		t.Fatalf("line = %q, want %q", got, want)
-	}
+	require.NoError(t, err)
+	require.Equal(t, "fatal: boom", line)
 }
 
 func TestTrimSidebandLine(t *testing.T) {
 	t.Parallel()
 
 	line, term := trimSidebandLine("remote: hello   \r")
-	if got, want := line, "remote: hello"; got != want {
-		t.Fatalf("line = %q, want %q", got, want)
-	}
-	if term == nil || *term != sidebandCR {
-		t.Fatalf("term = %v, want CR", term)
-	}
+	require.Equal(t, "remote: hello", line)
+	require.NotNil(t, term)
+	require.Equal(t, sidebandCR, *term)
 
 	line, term = trimSidebandLine("local message\n")
-	if got, want := line, "local message"; got != want {
-		t.Fatalf("line = %q, want %q", got, want)
-	}
-	if term == nil || *term != sidebandLF {
-		t.Fatalf("term = %v, want LF", term)
-	}
+	require.Equal(t, "local message", line)
+	require.NotNil(t, term)
+	require.Equal(t, sidebandLF, *term)
 
 	line, term = trimSidebandLine("no terminator")
-	if got, want := line, "no terminator"; got != want {
-		t.Fatalf("line = %q, want %q", got, want)
-	}
-	if term != nil {
-		t.Fatalf("term = %v, want nil", term)
-	}
+	require.Equal(t, "no terminator", line)
+	require.Nil(t, term)
 }
 
 func TestIsErrorLine(t *testing.T) {
@@ -500,9 +413,7 @@ func TestIsErrorLine(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if got := isErrorLine(test.line); got != test.want {
-			t.Errorf("isErrorLine(%q) = %v, want %v", test.line, got, test.want)
-		}
+		assert.Equal(t, test.want, isErrorLine(test.line), "isErrorLine(%q)", test.line)
 	}
 }
 
@@ -516,16 +427,9 @@ func TestRelayGitProgressErrorCapture(t *testing.T) {
 
 	cb := &testCallback{}
 	errText, err := relayGitProgress(strings.NewReader(input), cb)
-	if err != nil {
-		t.Fatalf("relayGitProgress() error = %v", err)
-	}
-
-	if !strings.HasPrefix(errText, "fatal: ") {
-		t.Fatalf("errText = %q, want prefix 'fatal: '", errText)
-	}
-	if cb.progressCalls == 0 {
-		t.Fatal("expected progress callbacks before error")
-	}
+	require.NoError(t, err)
+	require.True(t, strings.HasPrefix(errText, "fatal: "))
+	require.NotZero(t, cb.progressCalls)
 }
 
 func TestRelayGitProgressSideband(t *testing.T) {
@@ -537,22 +441,11 @@ func TestRelayGitProgressSideband(t *testing.T) {
 
 	cb := &testCallback{}
 	errText, err := relayGitProgress(strings.NewReader(input), cb)
-	if err != nil {
-		t.Fatalf("relayGitProgress() error = %v", err)
-	}
-
-	if errText != "" {
-		t.Fatalf("errText = %q, want empty", errText)
-	}
-	if cb.remoteCalls != 1 {
-		t.Fatalf("remote sideband calls = %d, want 1", cb.remoteCalls)
-	}
-	if cb.localCalls != 1 {
-		t.Fatalf("local sideband calls = %d, want 1", cb.localCalls)
-	}
-	if cb.progressCalls != 1 {
-		t.Fatalf("progress calls = %d, want 1", cb.progressCalls)
-	}
+	require.NoError(t, err)
+	require.Empty(t, errText)
+	require.Equal(t, 1, cb.remoteCalls)
+	require.Equal(t, 1, cb.localCalls)
+	require.Equal(t, 1, cb.progressCalls)
 }
 
 type testCallback struct {

@@ -241,12 +241,8 @@ func resolveCloneTargets(
 			default:
 				s = s.Strs("languages", cli.Languages)
 			}
-			switch len(cli.Topics) {
-			case 0:
-			case 1:
-				s = s.Str("topic", cli.Topics[0])
-			default:
-				s = s.Strs("topics", cli.Topics)
+			if len(cli.TopicFilters) > 0 {
+				s = s.Str("topics", formatTopicFilters(cli.TopicFilters))
 			}
 			listErr := s.Wait(ctx, func(_ context.Context) error {
 				var listErr error
@@ -255,7 +251,7 @@ func resolveCloneTargets(
 					IncludeForked:   cli.Forked,
 					Visibility:      cli.Visibility,
 					Languages:       cli.Languages,
-					Topics:          cli.Topics,
+					TopicFilters:    cli.TopicFilters,
 				})
 				if listErr != nil {
 					return listErr
@@ -505,6 +501,18 @@ func matchesAnyRegexp(patterns []*regexp.Regexp, value string) bool {
 		}
 	}
 	return false
+}
+
+func formatTopicFilters(filters [][]string) string {
+	parts := make([]string, 0, len(filters))
+	for _, group := range filters {
+		part := strings.Join(group, " OR ")
+		if len(group) > 1 && len(filters) > 1 {
+			part = "(" + part + ")"
+		}
+		parts = append(parts, part)
+	}
+	return strings.Join(parts, " AND ")
 }
 
 func dedupeRequests(requests []repoRequest) []repoRequest {

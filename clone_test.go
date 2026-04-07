@@ -1,8 +1,9 @@
 package main
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewCloner(t *testing.T) {
@@ -16,21 +17,11 @@ func TestNewCloner(t *testing.T) {
 		Depth:        1,
 		SingleBranch: true,
 	})
-	if cloner == nil {
-		t.Fatal("NewCloner() = nil")
-	}
-	if got, want := cloner.Source, "https://github.com/owner/repo.git"; got != want {
-		t.Fatalf("Source = %q, want %q", got, want)
-	}
-	if got, want := cloner.Slug, "owner/repo"; got != want {
-		t.Fatalf("Slug = %q, want %q", got, want)
-	}
-	if got, want := cloner.Dest, "repo"; got != want {
-		t.Fatalf("Dest = %q, want %q", got, want)
-	}
-	if !cloner.SingleBranch {
-		t.Fatal("SingleBranch = false, want true")
-	}
+	require.NotNil(t, cloner)
+	require.Equal(t, "https://github.com/owner/repo.git", cloner.Source)
+	require.Equal(t, "owner/repo", cloner.Slug)
+	require.Equal(t, "repo", cloner.Dest)
+	require.True(t, cloner.SingleBranch)
 }
 
 func TestClonerGitCloneArgs(t *testing.T) {
@@ -81,9 +72,7 @@ func TestClonerGitCloneArgs(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := test.cloner.gitCloneArgs(true); !reflect.DeepEqual(got, test.want) {
-				t.Fatalf("gitCloneArgs() = %#v, want %#v", got, test.want)
-			}
+			require.Equal(t, test.want, test.cloner.gitCloneArgs(true))
 		})
 	}
 }
@@ -106,9 +95,7 @@ func TestClonerJJInitArgs(t *testing.T) {
 		"--colocate",
 		".",
 	}
-	if got := cloner.jjInitArgs(); !reflect.DeepEqual(got, want) {
-		t.Fatalf("jjInitArgs() = %#v, want %#v", got, want)
-	}
+	require.Equal(t, want, cloner.jjInitArgs())
 }
 
 func TestCloneCallbackMonotonic(t *testing.T) {
@@ -131,12 +118,8 @@ func TestCloneCallbackMonotonic(t *testing.T) {
 	p.Counted = phaseProgress{Current: 81, Total: 10000}
 	second := applyProgress(p)
 
-	if second < first {
-		t.Fatalf("progress went backwards: %d -> %d", first, second)
-	}
-	if second != first {
-		t.Fatalf("expected high-water mark %d, got %d", first, second)
-	}
+	require.GreaterOrEqual(t, second, first)
+	require.Equal(t, first, second)
 }
 
 func TestShowOverallProgress(t *testing.T) {
@@ -173,9 +156,7 @@ func TestShowOverallProgress(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := showOverallProgress(test.repoCount); got != test.want {
-				t.Fatalf("showOverallProgress(%d) = %v, want %v", test.repoCount, got, test.want)
-			}
+			require.Equal(t, test.want, showOverallProgress(test.repoCount))
 		})
 	}
 }
@@ -251,9 +232,7 @@ func TestClonerDryRunCommand(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			if got := test.cloner.DryRunCommand(); got != test.want {
-				t.Fatalf("DryRunCommand() = %q, want %q", got, test.want)
-			}
+			require.Equal(t, test.want, test.cloner.DryRunCommand())
 		})
 	}
 }

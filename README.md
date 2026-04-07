@@ -44,7 +44,7 @@ Use `all` to clone every repository for the given owner.
 | `--archived`              | Include archived repositories                                           |
 | `--forked`                | Include forked repositories                                             |
 | `-l`, `--language <lang>` | Filter by language (repeatable)                                         |
-| `-t`, `--topic <topic>`   | Filter by topic (repeatable)                                            |
+| `-t`, `--topic <topic>`   | Filter by topic (`a,b` = `AND`, `a/b` = `OR`, repeated flags = `AND`)   |
 | `--visibility <type>`     | Filter by visibility (`all`, `public`, `private`, `internal`)           |
 | `-i <regex>`              | Only clone repositories matching regex (repeatable)                     |
 | `--include <name>`        | Only clone repository by exact name (repeatable)                        |
@@ -94,7 +94,19 @@ clone owner/repo
 clone owner/repo-one owner/repo-two
 
 # Clone all Go repositories
-clone --language=Go all
+clone --language=Go
+
+# Clone repos that have both topics
+clone -t backend,cli
+
+# Same AND logic using repeated flags
+clone -t backend -t cli
+
+# Clone repos that have either topic
+clone -t backend/cli
+
+# Mixed logic: must have api, and either backend or platform
+clone -t backend/platform,api
 
 # Quick shallow clone (no history, default branch only)
 clone --quick owner/repo
@@ -106,7 +118,7 @@ clone owner/repo=local-dir
 clone -O other-owner all
 
 # Clone into a specific directory
-clone -d ~/projects/go --language=Go all
+clone -d ~/projects/go --language=Go
 
 # Clone a specific branch with shallow depth
 clone --branch=main --depth=1 owner/repo

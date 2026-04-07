@@ -17,7 +17,7 @@ type repoListOptions struct {
 	IncludeForked   bool
 	Visibility      string
 	Languages       []string
-	Topics          []string
+	TopicFilters    [][]string
 }
 
 type repoInfo struct {
@@ -143,7 +143,7 @@ query OwnerRepos($owner: String!, $endCursor: String) {
 					topics = append(topics, topicNode.Topic.Name)
 				}
 			}
-			if len(opts.Topics) > 0 && !matchesAnyFold(opts.Topics, topics...) {
+			if len(opts.TopicFilters) > 0 && !matchesTopicFilters(opts.TopicFilters, topics...) {
 				continue
 			}
 
@@ -212,4 +212,13 @@ func matchesAnyFold(values []string, candidates ...string) bool {
 		}
 	}
 	return false
+}
+
+func matchesTopicFilters(filters [][]string, candidates ...string) bool {
+	for _, group := range filters {
+		if !matchesAnyFold(group, candidates...) {
+			return false
+		}
+	}
+	return true
 }

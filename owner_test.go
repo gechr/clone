@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestResolveDefaultOwnerUsesEnv(t *testing.T) {
@@ -10,7 +12,7 @@ func TestResolveDefaultOwnerUsesEnv(t *testing.T) {
 
 	orig := ghOwnerLookup
 	ghOwnerLookup = func() (string, error) {
-		t.Fatal("gh lookup should not run when CLONE_OWNER is set")
+		require.FailNow(t, "gh lookup should not run when CLONE_OWNER is set")
 		return "", nil
 	}
 	t.Cleanup(func() {
@@ -18,12 +20,8 @@ func TestResolveDefaultOwnerUsesEnv(t *testing.T) {
 	})
 
 	got, err := resolveDefaultOwner()
-	if err != nil {
-		t.Fatalf("resolveDefaultOwner() error = %v", err)
-	}
-	if got != "oss-owner" {
-		t.Fatalf("resolveDefaultOwner() = %q, want %q", got, "oss-owner")
-	}
+	require.NoError(t, err)
+	require.Equal(t, "oss-owner", got)
 }
 
 func TestResolveDefaultOwnerFallsBackToGH(t *testing.T) {
@@ -38,12 +36,8 @@ func TestResolveDefaultOwnerFallsBackToGH(t *testing.T) {
 	})
 
 	got, err := resolveDefaultOwner()
-	if err != nil {
-		t.Fatalf("resolveDefaultOwner() error = %v", err)
-	}
-	if got != "gh-owner" {
-		t.Fatalf("resolveDefaultOwner() = %q, want %q", got, "gh-owner")
-	}
+	require.NoError(t, err)
+	require.Equal(t, "gh-owner", got)
 }
 
 func TestResolveDefaultOwnerPropagatesGHError(t *testing.T) {
@@ -58,7 +52,5 @@ func TestResolveDefaultOwnerPropagatesGHError(t *testing.T) {
 	})
 
 	_, err := resolveDefaultOwner()
-	if err == nil || err.Error() != "gh failed" {
-		t.Fatalf("resolveDefaultOwner() error = %v, want %q", err, "gh failed")
-	}
+	require.EqualError(t, err, "gh failed")
 }

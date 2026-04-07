@@ -77,6 +77,8 @@ type CLI struct {
 
 	binGit string `kong:"-"`
 	binJJ  string `kong:"-"`
+
+	TopicFilters [][]string `kong:"-"`
 }
 
 func vcsDefault() string {
@@ -103,6 +105,11 @@ func (c *CLI) Validate() error {
 		return nil
 	}
 	c.Normalize()
+	topicFilters, err := parseTopicFilters(c.Topics)
+	if err != nil {
+		return err
+	}
+	c.TopicFilters = topicFilters
 	if len(c.Repos) == 0 && len(c.Languages) == 0 && len(c.Topics) == 0 {
 		return fmt.Errorf("at least one repository is required")
 	}
@@ -119,6 +126,29 @@ func (c *CLI) Validate() error {
 		return fmt.Errorf("--mirror is not supported with jj (use --vcs=git)")
 	}
 	return nil
+}
+
+func parseTopicFilters(values []string) ([][]string, error) {
+	var filters [][]string
+	for _, value := range values {
+		for clause := range strings.SplitSeq(value, ",") {
+			clause = strings.TrimSpace(clause)
+			if clause == "" {
+				return nil, fmt.Errorf("invalid topic filter %q", value)
+			}
+
+			var group []string
+			for option := range strings.SplitSeq(clause, "/") {
+				option = strings.TrimSpace(option)
+				if option == "" {
+					return nil, fmt.Errorf("invalid topic filter %q", value)
+				}
+				group = append(group, option)
+			}
+			filters = append(filters, group)
+		}
+	}
+	return filters, nil
 }
 
 func buildParser(cli *CLI) *kong.Kong {

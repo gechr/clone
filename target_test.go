@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 const testDefaultOwner = "octo"
@@ -22,7 +24,7 @@ func (f fakeRepoLister) ListOwnerRepos(owner string, opts repoListOptions) ([]re
 		if len(opts.Languages) > 0 && !matchesAnyFold(opts.Languages, repo.Language) {
 			continue
 		}
-		if len(opts.Topics) > 0 && !matchesAnyFold(opts.Topics, repo.Topics...) {
+		if len(opts.TopicFilters) > 0 && !matchesTopicFilters(opts.TopicFilters, repo.Topics...) {
 			continue
 		}
 		filtered = append(filtered, repo)
@@ -69,12 +71,8 @@ func TestParseRepoRequest(t *testing.T) {
 			t.Parallel()
 
 			got, err := parseRepoRequest(test.input, testDefaultOwner)
-			if err != nil {
-				t.Fatalf("parseRepoRequest() error = %v", err)
-			}
-			if got != test.want {
-				t.Fatalf("parseRepoRequest() = %#v, want %#v", got, test.want)
-			}
+			require.NoError(t, err)
+			require.Equal(t, test.want, got)
 		})
 	}
 }
@@ -145,12 +143,8 @@ func TestParseRepoRequestPRShorthand(t *testing.T) {
 			t.Parallel()
 
 			got, err := parseRepoRequest(test.input, testDefaultOwner)
-			if err != nil {
-				t.Fatalf("parseRepoRequest() error = %v", err)
-			}
-			if got != test.want {
-				t.Fatalf("parseRepoRequest() = %#v, want %#v", got, test.want)
-			}
+			require.NoError(t, err)
+			require.Equal(t, test.want, got)
 		})
 	}
 }
@@ -175,19 +169,10 @@ func TestResolveCloneTargetsPR(t *testing.T) {
 			},
 		},
 	})
-	if err != nil {
-		t.Fatalf("resolveCloneTargets() error = %v", err)
-	}
-	if len(targets) != 1 {
-		t.Fatalf("len(targets) = %d, want 1", len(targets))
-	}
-	// Single same-repo open PR: should use --branch optimization
-	if got, want := targets[0].Branch, "feature-branch"; got != want {
-		t.Fatalf("Branch = %q, want %q", got, want)
-	}
-	if targets[0].PullRequest != "" {
-		t.Fatalf("PullRequest = %q, want empty (resolved to --branch)", targets[0].PullRequest)
-	}
+	require.NoError(t, err)
+	require.Len(t, targets, 1)
+	require.Equal(t, "feature-branch", targets[0].Branch)
+	require.Empty(t, targets[0].PullRequest)
 }
 
 func TestResolveCloneTargetsPRBranchConflict(t *testing.T) {
@@ -203,20 +188,21 @@ func TestResolveCloneTargetsPRBranchConflict(t *testing.T) {
 	}
 
 	_, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
-	if err == nil {
-		t.Fatal("resolveCloneTargets() error = nil, want conflict error")
-	}
+	require.Error(t, err)
 }
 
 func TestResolveCloneTargetsAllAndFilters(t *testing.T) {
 	t.Parallel()
 
 	cli := &CLI{
-		Owner:      testDefaultOwner,
-		Repos:      []string{"all"},
-		Method:     methodSSH,
-		VCS:        vcsGit,
-		Topics:     []string{"go"},
+		Owner:  testDefaultOwner,
+		Repos:  []string{"all"},
+		Method: methodSSH,
+		VCS:    vcsGit,
+		Topics: []string{"go"},
+		TopicFilters: [][]string{
+			{"go"},
+		},
 		Visibility: "all",
 	}
 
@@ -228,21 +214,39 @@ func TestResolveCloneTargetsAllAndFilters(t *testing.T) {
 			},
 		},
 	})
-	if err != nil {
-		t.Fatalf("resolveCloneTargets() error = %v", err)
+	require.NoError(t, err)
+	require.Empty(t, baseDir)
+	require.Len(t, targets, 1)
+	require.Equal(t, testDefaultOwner+"/alpha", targets[0].Slug)
+	require.Equal(t, "git@github.com:"+testDefaultOwner+"/alpha.git", targets[0].Source)
+}
+
+func TestResolveCloneTargetsImplicitAllForTopicFilters(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:  testDefaultOwner,
+		Method: methodSSH,
+		VCS:    vcsGit,
+		Topics: []string{"go"},
+		TopicFilters: [][]string{
+			{"go"},
+		},
+		Visibility: "all",
 	}
-	if baseDir != "" {
-		t.Fatalf("baseDir = %q, want empty", baseDir)
-	}
-	if len(targets) != 1 {
-		t.Fatalf("len(targets) = %d, want 1", len(targets))
-	}
-	if got, want := targets[0].Slug, testDefaultOwner+"/alpha"; got != want {
-		t.Fatalf("Slug = %q, want %q", got, want)
-	}
-	if got, want := targets[0].Source, "git@github.com:"+testDefaultOwner+"/alpha.git"; got != want {
-		t.Fatalf("Source = %q, want %q", got, want)
-	}
+
+	targets, baseDir, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{
+		repos: map[string][]repoInfo{
+			testDefaultOwner: {
+				{Owner: testDefaultOwner, Name: "alpha", Topics: []string{"go"}},
+				{Owner: testDefaultOwner, Name: "beta", Topics: []string{"rust"}},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Empty(t, baseDir)
+	require.Len(t, targets, 1)
+	require.Equal(t, testDefaultOwner+"/alpha", targets[0].Slug)
 }
 
 func TestResolveCloneTargetsDetectsDestinationClash(t *testing.T) {
@@ -256,7 +260,97 @@ func TestResolveCloneTargetsDetectsDestinationClash(t *testing.T) {
 	}
 
 	_, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
-	if err == nil {
-		t.Fatal("resolveCloneTargets() error = nil, want clash error")
+	require.Error(t, err)
+}
+
+func TestResolveCloneTargetsTopicFiltersAND(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:  testDefaultOwner,
+		Repos:  []string{"all"},
+		Method: methodSSH,
+		VCS:    vcsGit,
+		Topics: []string{"go", "cli"},
+		TopicFilters: [][]string{
+			{"go"},
+			{"cli"},
+		},
+		Visibility: "all",
+	}
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{
+		repos: map[string][]repoInfo{
+			testDefaultOwner: {
+				{Owner: testDefaultOwner, Name: "alpha", Topics: []string{"go", "cli"}},
+				{Owner: testDefaultOwner, Name: "beta", Topics: []string{"go"}},
+				{Owner: testDefaultOwner, Name: "gamma", Topics: []string{"cli"}},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, targets, 1)
+	require.Equal(t, testDefaultOwner+"/alpha", targets[0].Slug)
+}
+
+func TestResolveCloneTargetsTopicFiltersOR(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:  testDefaultOwner,
+		Repos:  []string{"all"},
+		Method: methodSSH,
+		VCS:    vcsGit,
+		Topics: []string{"go/rust"},
+		TopicFilters: [][]string{
+			{"go", "rust"},
+		},
+		Visibility: "all",
+	}
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{
+		repos: map[string][]repoInfo{
+			testDefaultOwner: {
+				{Owner: testDefaultOwner, Name: "alpha", Topics: []string{"go"}},
+				{Owner: testDefaultOwner, Name: "beta", Topics: []string{"rust"}},
+				{Owner: testDefaultOwner, Name: "gamma", Topics: []string{"python"}},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, targets, 2)
+}
+
+func TestFormatTopicFilters(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		filters [][]string
+		want    string
+	}{
+		{
+			name:    "and",
+			filters: [][]string{{"backend"}, {"cli"}},
+			want:    "backend AND cli",
+		},
+		{
+			name:    "or",
+			filters: [][]string{{"backend", "cli"}},
+			want:    "backend OR cli",
+		},
+		{
+			name:    "mixed",
+			filters: [][]string{{"backend", "platform"}, {"api"}},
+			want:    "(backend OR platform) AND api",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, test.want, formatTopicFilters(test.filters))
+		})
 	}
 }

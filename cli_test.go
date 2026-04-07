@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestCLINormalizeKeepsExplicitOwner(t *testing.T) {
 	t.Parallel()
@@ -8,9 +12,7 @@ func TestCLINormalizeKeepsExplicitOwner(t *testing.T) {
 	cli := &CLI{Owner: "cli"}
 	cli.Normalize()
 
-	if got, want := cli.Owner, "cli"; got != want {
-		t.Fatalf("Owner = %q, want %q", got, want)
-	}
+	require.Equal(t, "cli", cli.Owner)
 }
 
 func TestCLINormalizeMethodHTTPToHTTPS(t *testing.T) {
@@ -19,9 +21,7 @@ func TestCLINormalizeMethodHTTPToHTTPS(t *testing.T) {
 	cli := &CLI{Method: "http"}
 	cli.Normalize()
 
-	if got, want := cli.Method, methodHTTPS; got != want {
-		t.Fatalf("Method = %q, want %q", got, want)
-	}
+	require.Equal(t, methodHTTPS, cli.Method)
 }
 
 func TestCLINormalizeMethodHTTPSUnchanged(t *testing.T) {
@@ -30,7 +30,43 @@ func TestCLINormalizeMethodHTTPSUnchanged(t *testing.T) {
 	cli := &CLI{Method: methodHTTPS}
 	cli.Normalize()
 
-	if got, want := cli.Method, methodHTTPS; got != want {
-		t.Fatalf("Method = %q, want %q", got, want)
+	require.Equal(t, methodHTTPS, cli.Method)
+}
+
+func TestParseTopicFiltersCommaMeansAND(t *testing.T) {
+	t.Parallel()
+
+	got, err := parseTopicFilters([]string{"backend,cli"})
+	require.NoError(t, err)
+	require.Equal(t, [][]string{{"backend"}, {"cli"}}, got)
+}
+
+func TestParseTopicFiltersSlashMeansOR(t *testing.T) {
+	t.Parallel()
+
+	got, err := parseTopicFilters([]string{"backend/cli"})
+	require.NoError(t, err)
+	require.Equal(t, [][]string{{"backend", "cli"}}, got)
+}
+
+func TestParseTopicFiltersRepeatedFlagsMeanAND(t *testing.T) {
+	t.Parallel()
+
+	got, err := parseTopicFilters([]string{"backend", "cli"})
+	require.NoError(t, err)
+	require.Equal(t, [][]string{{"backend"}, {"cli"}}, got)
+}
+
+func TestCLIValidateParsesTopicFilters(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:       []string{"all"},
+		Topics:      []string{"backend/cli", "api"},
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
 	}
+
+	require.NoError(t, cli.Validate())
+	require.Equal(t, "(backend OR cli) AND api", formatTopicFilters(cli.TopicFilters))
 }
