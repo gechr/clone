@@ -46,6 +46,8 @@ type Cloner struct {
 	Slug         string
 	Source       string
 	VCS          string
+
+	Err error
 }
 
 func NewCloner(target CloneTarget) *Cloner {
@@ -205,17 +207,30 @@ func cloneLinks(cloners []*Cloner) []clog.Link {
 	return links
 }
 
+func logCloneFailed(failed []*Cloner) {
+	links := cloneLinks(failed)
+	if len(links) == 1 {
+		e := clog.Error().Link("repository", links[0].URL, links[0].Text)
+		if failed[0].Err != nil {
+			e = e.Str("reason", failed[0].Err.Error())
+		}
+		e.Msg("Clone failed")
+		return
+	}
+	e := clog.Error().
+		Links("repositories", links).
+		Int("total", len(links))
+	for _, c := range failed {
+		if c.Err != nil {
+			e = e.Str(c.Label, c.Err.Error())
+		}
+	}
+	e.Msg("Clone failed")
+}
+
 func logCloneResult(all, failed []*Cloner) {
 	if len(failed) > 0 {
-		links := cloneLinks(failed)
-		if len(links) == 1 {
-			clog.Error().Link("repository", links[0].URL, links[0].Text).Msg("Clone failed")
-		} else {
-			clog.Error().
-				Links("repositories", links).
-				Int("total", len(links)).
-				Msg("Clone failed")
-		}
+		logCloneFailed(failed)
 	}
 
 	if len(all) > len(failed) {
@@ -335,6 +350,7 @@ func cloneQuiet(ctx context.Context, cloners []*Cloner, parallelism int) error {
 			defer func() { <-sem }()
 
 			if err := cloner.Run(ctx, nil, nil); err != nil {
+				cloner.Err = err
 				mu.Lock()
 				failed = append(failed, cloner)
 				errs = append(errs, err)
@@ -392,6 +408,7 @@ func cloneWithProgress(
 	var errs []error
 	for _, task := range tasks {
 		if err := task.result.Silent(); err != nil {
+			task.cloner.Err = err
 			failed = append(failed, task.cloner)
 			errs = append(errs, err)
 		}
@@ -425,7 +442,11 @@ func (c *Cloner) Run(
 			return ctx.Err()
 		}
 		if update != nil {
-			update.Msg("Clone failed").SetSymbol("✘").SetLevel(clog.LevelError).Send()
+			update.Msg("Clone failed").
+				SetSymbol("✘").
+				SetLevel(clog.LevelError).
+				Str("reason", err.Error()).
+				Send()
 		}
 		return err
 	}
