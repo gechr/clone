@@ -98,7 +98,7 @@ func configureClog() {
 			clog.LevelFatal: new(lipgloss.NewStyle().Foreground(lipgloss.Color("1"))),
 		},
 	})
-	clog.SetSpinnerStyle(spinner.Dots)
+	clog.SetSpinnerStyle(spinner.DotsBounce)
 }
 
 func run() error {

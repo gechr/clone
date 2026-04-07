@@ -9,7 +9,7 @@ require (
 	github.com/alecthomas/kong v1.15.0
 	github.com/cli/go-gh/v2 v2.13.0
 	github.com/gechr/clib v0.2.11
-	github.com/gechr/clog v0.8.2
+	github.com/gechr/clog v0.8.3
 	github.com/stretchr/testify v1.11.1
 )
 
