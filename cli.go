@@ -329,7 +329,7 @@ func buildExamplesSection() help.Section {
 				},
 				{
 					Comment: "Clone all Go repositories",
-					Command: "clone --language=Go all",
+					Command: "clone --language=Go",
 				},
 				{
 					Comment: "Clone specific repos only if they match filter",
@@ -353,7 +353,7 @@ func buildExamplesSection() help.Section {
 				},
 				{
 					Comment: "Clone into a specific directory",
-					Command: "clone -d ~/projects/go --language=Go all",
+					Command: "clone -d ~/projects/go --language=Go",
 				},
 				{
 					Comment: "Clone a specific branch with shallow depth",

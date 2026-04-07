@@ -249,6 +249,55 @@ func TestResolveCloneTargetsImplicitAllForTopicFilters(t *testing.T) {
 	require.Equal(t, testDefaultOwner+"/alpha", targets[0].Slug)
 }
 
+func TestResolveCloneTargetsImplicitAllForLanguageFilters(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:      testDefaultOwner,
+		Method:     methodSSH,
+		VCS:        vcsGit,
+		Languages:  []string{"Go"},
+		Visibility: "all",
+	}
+
+	targets, baseDir, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{
+		repos: map[string][]repoInfo{
+			testDefaultOwner: {
+				{Owner: testDefaultOwner, Name: "alpha", Language: "Go"},
+				{Owner: testDefaultOwner, Name: "beta", Language: "Rust"},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Empty(t, baseDir)
+	require.Len(t, targets, 1)
+	require.Equal(t, testDefaultOwner+"/alpha", targets[0].Slug)
+}
+
+func TestResolveCloneTargetsLanguageFiltersOR(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:      testDefaultOwner,
+		Repos:      []string{"all"},
+		Method:     methodSSH,
+		VCS:        vcsGit,
+		Languages:  []string{"Go", "CLI"},
+		Visibility: "all",
+	}
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{
+		repos: map[string][]repoInfo{
+			testDefaultOwner: {
+				{Owner: testDefaultOwner, Name: "alpha", Language: "Go"},
+				{Owner: testDefaultOwner, Name: "beta", Language: "CLI"},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, targets, 2)
+}
+
 func TestResolveCloneTargetsDetectsDestinationClash(t *testing.T) {
 	t.Parallel()
 

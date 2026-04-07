@@ -506,13 +506,21 @@ func matchesAnyRegexp(patterns []*regexp.Regexp, value string) bool {
 func formatTopicFilters(filters [][]string) string {
 	parts := make([]string, 0, len(filters))
 	for _, group := range filters {
-		part := strings.Join(group, " OR ")
+		part := formatOR(group)
 		if len(group) > 1 && len(filters) > 1 {
 			part = "(" + part + ")"
 		}
 		parts = append(parts, part)
 	}
-	return strings.Join(parts, " AND ")
+	return formatAND(parts)
+}
+
+func formatAND(values []string) string {
+	return strings.Join(values, " AND ")
+}
+
+func formatOR(values []string) string {
+	return strings.Join(values, " OR ")
 }
 
 func dedupeRequests(requests []repoRequest) []repoRequest {

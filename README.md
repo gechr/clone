@@ -43,7 +43,7 @@ Use `all` to clone every repository for the given owner.
 | `-O`, `--owner <owner>`   | GitHub owner/organization (default: `CLONE_OWNER` or current `gh` user) |
 | `--archived`              | Include archived repositories                                           |
 | `--forked`                | Include forked repositories                                             |
-| `-l`, `--language <lang>` | Filter by language (repeatable)                                         |
+| `-l`, `--language <lang>` | Filter by primary language (repeatable, matches any)                    |
 | `-t`, `--topic <topic>`   | Filter by topic (`a,b` = `AND`, `a/b` = `OR`, repeated flags = `AND`)   |
 | `--visibility <type>`     | Filter by visibility (`all`, `public`, `private`, `internal`)           |
 | `-i <regex>`              | Only clone repositories matching regex (repeatable)                     |
