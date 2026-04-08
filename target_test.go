@@ -201,6 +201,36 @@ func TestResolveCloneTargetsPRBranchConflict(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestResolveCloneTargetsRejectsNonPositivePRNumbers(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		repo string
+		pr   string
+	}{
+		{name: "zero", repo: "owner/repo#0", pr: "0"},
+		{name: "negative", repo: "owner/repo#-1", pr: "-1"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			cli := &CLI{
+				Owner:      testDefaultOwner,
+				Repos:      []string{test.repo},
+				Method:     methodSSH,
+				VCS:        vcsGit,
+				Visibility: "all",
+			}
+
+			_, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+			require.EqualError(t, err, fmt.Sprintf("invalid PR number %q for owner/repo", test.pr))
+		})
+	}
+}
+
 func TestResolveCloneTargetsAllAndFilters(t *testing.T) {
 	t.Parallel()
 

@@ -327,7 +327,7 @@ func resolveCloneTargets(
 			continue
 		}
 		number, numErr := strconv.Atoi(req.PullRequest)
-		if numErr != nil {
+		if numErr != nil || number <= 0 {
 			return nil, baseDir, fmt.Errorf(
 				"invalid PR number %q for %s/%s",
 				req.PullRequest,
