@@ -132,6 +132,9 @@ func (c *CLI) Validate() error {
 func parseTopicFilters(values []string) ([][]string, error) {
 	var filters [][]string
 	for _, value := range values {
+		if strings.TrimSpace(value) == "" {
+			return nil, fmt.Errorf("invalid topic filter %q", value)
+		}
 		for clause := range strings.SplitSeq(value, ",") {
 			clause = strings.TrimSpace(clause)
 			if clause == "" {

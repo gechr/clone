@@ -57,6 +57,13 @@ func TestParseTopicFiltersRepeatedFlagsMeanAND(t *testing.T) {
 	require.Equal(t, [][]string{{"backend"}, {"cli"}}, got)
 }
 
+func TestParseTopicFiltersRejectsEmptyString(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseTopicFilters([]string{""})
+	require.EqualError(t, err, `invalid topic filter ""`)
+}
+
 func TestCLIValidateParsesTopicFilters(t *testing.T) {
 	t.Parallel()
 
