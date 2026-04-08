@@ -190,7 +190,7 @@ func run() error {
 		return errSilent
 	}
 
-	if err := executeClones(ctx, &cli, targets); err != nil {
+	if err := executeClones(ctx, &cli, baseDir, targets); err != nil {
 		if errors.Is(context.Cause(ctx), errInterrupted) {
 			return &userError{exitCode: exitCodeSignal}
 		}

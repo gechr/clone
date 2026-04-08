@@ -232,7 +232,7 @@ func logCloneFailed(failed []*Cloner) {
 	e.Msg("Clone failed")
 }
 
-func logCloneResult(all, failed []*Cloner) {
+func logCloneResult(baseDir string, all, failed []*Cloner) {
 	if len(failed) > 0 {
 		logCloneFailed(failed)
 	}
@@ -248,19 +248,29 @@ func logCloneResult(all, failed []*Cloner) {
 				succeeded = append(succeeded, c)
 			}
 		}
-		links := cloneLinks(succeeded)
-		if len(links) == 1 {
-			clog.Log(LevelSuccess).Link("repository", links[0].URL, links[0].Text).Msg("Cloned")
-		} else {
-			clog.Log(LevelSuccess).
-				Links("repositories", links).
-				Int("total", len(links)).
-				Msg("Cloned")
-		}
+		logCloneSucceeded(baseDir, succeeded)
 	}
 }
 
-func executeClones(ctx context.Context, cli *CLI, targets []CloneTarget) error {
+func logCloneSucceeded(baseDir string, succeeded []*Cloner) {
+	links := cloneLinks(succeeded)
+	if len(links) == 1 {
+		e := clog.Log(LevelSuccess).Link("repository", links[0].URL, links[0].Text)
+		if baseDir != "" {
+			e = e.Path("directory", succeeded[0].Dest)
+		}
+		e.Msg("Cloned")
+	} else {
+		e := clog.Log(LevelSuccess).
+			Links("repositories", links)
+		if baseDir != "" {
+			e = e.Path("directory", baseDir)
+		}
+		e.Int("total", len(links)).Msg("Cloned")
+	}
+}
+
+func executeClones(ctx context.Context, cli *CLI, baseDir string, targets []CloneTarget) error {
 	cloners, err := prepareCloners(targets, !cli.Quiet, !cli.Dry, cli.Force)
 	if err != nil {
 		return err
@@ -278,9 +288,9 @@ func executeClones(ctx context.Context, cli *CLI, targets []CloneTarget) error {
 
 	var cloneErr error
 	if cli.Quiet {
-		cloneErr = cloneQuiet(ctx, cloners, cli.Parallelism)
+		cloneErr = cloneQuiet(ctx, baseDir, cloners, cli.Parallelism)
 	} else {
-		cloneErr = cloneWithProgress(ctx, cloners, cli.Parallelism, cli.Verbose)
+		cloneErr = cloneWithProgress(ctx, baseDir, cloners, cli.Parallelism, cli.Verbose)
 	}
 
 	if cloneErr != nil {
@@ -333,7 +343,7 @@ func prepareCloners(
 	return cloners, nil
 }
 
-func cloneQuiet(ctx context.Context, cloners []*Cloner, parallelism int) error {
+func cloneQuiet(ctx context.Context, baseDir string, cloners []*Cloner, parallelism int) error {
 	if parallelism < 1 {
 		parallelism = 1
 	}
@@ -368,12 +378,13 @@ func cloneQuiet(ctx context.Context, cloners []*Cloner, parallelism int) error {
 		return ctx.Err()
 	}
 
-	logCloneResult(cloners, failed)
+	logCloneResult(baseDir, cloners, failed)
 	return errors.Join(errs...)
 }
 
 func cloneWithProgress(
 	ctx context.Context,
+	baseDir string,
 	cloners []*Cloner,
 	parallelism int,
 	verbose bool,
@@ -421,7 +432,7 @@ func cloneWithProgress(
 		errs = append(errs, waitErr)
 	}
 
-	logCloneResult(cloners, failed)
+	logCloneResult(baseDir, cloners, failed)
 	return errors.Join(errs...)
 }
 
