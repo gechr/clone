@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -93,6 +94,7 @@ func (c *CLI) Normalize() {
 	if c.Method == "http" {
 		c.Method = methodHTTPS
 	}
+	c.Languages = uniqueFold(c.Languages)
 	if c.Quick && c.Depth == 0 {
 		c.Depth = 1
 	}
@@ -110,7 +112,7 @@ func (c *CLI) Validate() error {
 	if err != nil {
 		return err
 	}
-	c.TopicFilters = topicFilters
+	c.TopicFilters = uniqueTopicFilters(topicFilters)
 	if len(c.Repos) == 0 && len(c.Languages) == 0 && len(c.Topics) == 0 {
 		return fmt.Errorf("at least one repository is required")
 	}
@@ -153,6 +155,40 @@ func parseTopicFilters(values []string) ([][]string, error) {
 		}
 	}
 	return filters, nil
+}
+
+func uniqueFold(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	out := make([]string, 0, len(values))
+	for _, value := range values {
+		key := strings.ToLower(strings.TrimSpace(value))
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, value)
+	}
+	return out
+}
+
+func uniqueTopicFilters(filters [][]string) [][]string {
+	seen := make(map[string]struct{}, len(filters))
+	out := make([][]string, 0, len(filters))
+	for _, group := range filters {
+		group = uniqueFold(group)
+		keyParts := make([]string, len(group))
+		for i, option := range group {
+			keyParts[i] = strings.ToLower(strings.TrimSpace(option))
+		}
+		slices.Sort(keyParts)
+		key := strings.Join(keyParts, "\x00")
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, group)
+	}
+	return out
 }
 
 func buildParser(cli *CLI) *kong.Kong {

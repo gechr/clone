@@ -179,6 +179,6 @@ func TestConfigureClogWritesErrorsToStderr(t *testing.T) {
 	stderr, err := io.ReadAll(stderrR)
 	require.NoError(t, err)
 
-	assert.Equal(t, "", string(stdout))
+	assert.Empty(t, stdout)
 	assert.Contains(t, string(stderr), "✘ boom")
 }

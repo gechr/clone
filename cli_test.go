@@ -33,6 +33,29 @@ func TestCLINormalizeMethodHTTPSUnchanged(t *testing.T) {
 	require.Equal(t, methodHTTPS, cli.Method)
 }
 
+func TestCLINormalizeDeduplicatesLanguages(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{Languages: []string{"go", "go", "Go", "rust"}}
+	cli.Normalize()
+
+	require.Equal(t, []string{"go", "rust"}, cli.Languages)
+}
+
+func TestCLIValidateDeduplicatesTopicFilters(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:       []string{"all"},
+		Topics:      []string{"go/cli", "CLI/go", "go", "Go"},
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+	}
+
+	require.NoError(t, cli.Validate())
+	require.Equal(t, [][]string{{"go", "cli"}, {"go"}}, cli.TopicFilters)
+}
+
 func TestParseTopicFiltersCommaMeansAND(t *testing.T) {
 	t.Parallel()
 
