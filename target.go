@@ -142,7 +142,10 @@ func parseRepoURL(repoText string) (string, string, string, string, bool) {
 	}
 }
 
-const minPullSegments = 4 // owner/repo/pull/N
+const (
+	minPullSegments  = 4   // owner/repo/pull/N
+	maxRepoNameBytes = 255 // common filesystem NAME_MAX for a single path component
+)
 
 func parseGitHubPath(raw, sourceFmt string) (string, string, string, string, bool) {
 	clean := strings.TrimSuffix(raw, "/")
@@ -595,6 +598,9 @@ func cloneURL(method, owner, repo string) string {
 
 func isValidRepoName(name string) bool {
 	if name == "" || name == "." || name == ".." {
+		return false
+	}
+	if len(name) > maxRepoNameBytes {
 		return false
 	}
 	for _, r := range name {

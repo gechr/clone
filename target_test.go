@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -147,6 +148,15 @@ func TestParseRepoRequestPRShorthand(t *testing.T) {
 			require.Equal(t, test.want, got)
 		})
 	}
+}
+
+func TestParseRepoRequestRejectsOverlongRepoName(t *testing.T) {
+	t.Parallel()
+
+	name := strings.Repeat("a", maxRepoNameBytes+1)
+
+	_, err := parseRepoRequest("owner/"+name, testDefaultOwner)
+	require.EqualError(t, err, fmt.Sprintf("invalid repository %q", "owner/"+name))
 }
 
 func TestResolveCloneTargetsPR(t *testing.T) {

@@ -195,6 +195,9 @@ func run() error {
 		if errors.Is(context.Cause(ctx), errInterrupted) {
 			return &userError{exitCode: exitCodeSignal}
 		}
+		if !errors.Is(err, errSilent) {
+			clog.Error().Msg(err.Error())
+		}
 		return errSilent
 	}
 
