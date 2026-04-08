@@ -24,6 +24,15 @@ func TestBuildParserQuick(t *testing.T) {
 	assert.Equal(t, []string{"owner/repo"}, cli.Repos)
 }
 
+func TestBuildParserRejectsQuickWithDepth(t *testing.T) {
+	t.Parallel()
+
+	var cli CLI
+	parser := buildParser(&cli)
+	_, err := parser.Parse([]string{"--quick", "--depth=5", "owner/repo"})
+	require.EqualError(t, err, "--depth and --quick can't be used together")
+}
+
 func TestBuildParserAttachedShortFlags(t *testing.T) {
 	t.Parallel()
 
