@@ -89,7 +89,7 @@ func parseRepoRequest(input, defaultOwner string) (repoRequest, error) {
 		pr = prPart
 	}
 
-	if name == "" {
+	if name != keywordAll && !isValidRepoName(name) {
 		return repoRequest{}, fmt.Errorf("invalid repository %q", raw)
 	}
 	if name == keywordAll && dir != "" {
@@ -591,4 +591,21 @@ func cloneURL(method, owner, repo string) string {
 		return fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
 	}
 	return fmt.Sprintf("git@github.com:%s/%s.git", owner, repo)
+}
+
+func isValidRepoName(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+	for _, r := range name {
+		switch {
+		case r >= 'a' && r <= 'z':
+		case r >= 'A' && r <= 'Z':
+		case r >= '0' && r <= '9':
+		case r == '-' || r == '_' || r == '.':
+		default:
+			return false
+		}
+	}
+	return true
 }
