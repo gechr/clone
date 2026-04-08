@@ -58,6 +58,7 @@ Use `all` to clone every repository for the given owner.
 | `-b`, `--branch <name>` | Clone a specific branch                                                                                                                 |
 | `-D`, `--depth <n>`     | Create a shallow clone of the given depth                                                                                               |
 | `-Q`, `--quick`         | Shallow single-branch clone (`--depth=1 --single-branch`)                                                                               |
+| `--fetch`               | Fetch updates for existing clones instead of skipping                                                                                   |
 | `--method <type>`       | Clone method (`ssh`, `https`; default: `ssh`)                                                                                           |
 | `--mirror`              | Create a [mirror](https://docs.github.com/en/repositories/creating-and-managing-repositories/duplicating-a-repository) clone (git only) |
 | `--vcs <type>`          | Version control system (`git`, `jj`; overrides `CLONE_VCS`)                                                                             |
@@ -137,6 +138,9 @@ clone owner/repo#21
 
 # Clone from an SSH URL
 clone git@github.com:owner/repo.git
+
+# Fetch existing repos, clone new ones
+clone --fetch --language=Go
 ```
 
 ## Pull requests

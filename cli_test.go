@@ -70,3 +70,16 @@ func TestCLIValidateParsesTopicFilters(t *testing.T) {
 	require.NoError(t, cli.Validate())
 	require.Equal(t, "(backend OR cli) AND api", formatTopicFilters(cli.TopicFilters))
 }
+
+func TestCLIValidateFetchAlone(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:       []string{"repo"},
+		Fetch:       true,
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+	}
+
+	require.NoError(t, cli.Validate())
+}

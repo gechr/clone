@@ -236,3 +236,162 @@ func TestClonerDryRunCommand(t *testing.T) {
 		})
 	}
 }
+
+func TestNewFetcher(t *testing.T) {
+	t.Parallel()
+
+	fetcher := NewFetcher(CloneTarget{
+		BinGit:  "git",
+		BinJJ:   "jj",
+		Slug:    "owner/repo",
+		Dest:    "repo",
+		Label:   "owner/repo",
+		RepoURL: "https://github.com/owner/repo",
+		VCS:     vcsGit,
+	})
+	require.NotNil(t, fetcher)
+	require.Equal(t, "git", fetcher.BinGit)
+	require.Equal(t, "jj", fetcher.BinJJ)
+	require.Equal(t, "owner/repo", fetcher.Slug)
+	require.Equal(t, "repo", fetcher.Dest)
+	require.Equal(t, vcsGit, fetcher.VCS)
+}
+
+func TestFetcherGitFetchArgs(t *testing.T) {
+	t.Parallel()
+
+	fetcher := &Fetcher{BinGit: "git", Dest: "repo", VCS: vcsGit}
+
+	require.Equal(t, []string{"-C", "repo", "fetch", "--progress"}, fetcher.gitFetchArgs(true))
+	require.Equal(t, []string{"-C", "repo", "fetch"}, fetcher.gitFetchArgs(false))
+}
+
+func TestFetcherDryRunCommand(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		fetcher *Fetcher
+		want    string
+	}{
+		{
+			name:    "git",
+			fetcher: &Fetcher{BinGit: "git", Dest: "repo", VCS: vcsGit},
+			want:    "git -C repo fetch",
+		},
+		{
+			name:    "jj",
+			fetcher: &Fetcher{BinGit: "git", BinJJ: "jj", Dest: "repo", VCS: vcsJJ},
+			want:    "git -C repo fetch\njj -R repo git import --quiet",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, test.want, test.fetcher.DryRunCommand())
+		})
+	}
+}
+
+func TestPrepareClonersWithFetch(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	targets := []CloneTarget{
+		{
+			BinGit: "git",
+			Slug:   "owner/existing",
+			Label:  "owner/existing",
+			Dest:   dir, // exists
+			VCS:    vcsGit,
+		},
+		{
+			BinGit: "git",
+			Slug:   "owner/new-repo",
+			Label:  "owner/new-repo",
+			Dest:   dir + "/nonexistent",
+			VCS:    vcsGit,
+		},
+	}
+
+	cloners, fetchers, err := prepareCloners(targets, false, false, false, true)
+	require.NoError(t, err)
+	require.Len(t, cloners, 1)
+	require.Equal(t, "owner/new-repo", cloners[0].Slug)
+	require.Len(t, fetchers, 1)
+	require.Equal(t, "owner/existing", fetchers[0].Slug)
+}
+
+func TestGroupFooterLabel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		cloners    []*Cloner
+		fetchers   []*Fetcher
+		wantActive string
+		wantDone   string
+	}{
+		{
+			name:       "clones only",
+			cloners:    []*Cloner{{}},
+			wantActive: "Cloning",
+			wantDone:   "Cloned",
+		},
+		{
+			name:       "fetches only",
+			fetchers:   []*Fetcher{{}},
+			wantActive: "Fetching",
+			wantDone:   "Fetched",
+		},
+		{
+			name:       "mixed",
+			cloners:    []*Cloner{{}},
+			fetchers:   []*Fetcher{{}},
+			wantActive: "Syncing",
+			wantDone:   "Synced",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			active, done := groupFooterLabel(test.cloners, test.fetchers)
+			require.Equal(t, test.wantActive, active)
+			require.Equal(t, test.wantDone, done)
+		})
+	}
+}
+
+func TestPrepareClonersWithoutFetch(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+
+	targets := []CloneTarget{
+		{
+			BinGit: "git",
+			Slug:   "owner/existing",
+			Label:  "owner/existing",
+			Dest:   dir, // exists
+			VCS:    vcsGit,
+		},
+		{
+			BinGit: "git",
+			Slug:   "owner/new-repo",
+			Label:  "owner/new-repo",
+			Dest:   dir + "/nonexistent",
+			VCS:    vcsGit,
+		},
+	}
+
+	cloners, fetchers, err := prepareCloners(targets, false, false, false, false)
+	require.NoError(t, err)
+	require.Len(t, cloners, 1)
+	require.Equal(t, "owner/new-repo", cloners[0].Slug)
+	require.Empty(t, fetchers)
+}

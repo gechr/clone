@@ -60,12 +60,13 @@ type CLI struct {
 	Depth       int    `name:"depth"       help:"Create a shallow clone of the given depth"                              short:"D"                    placeholder:"<n>"      clib:"terse='Depth',group='Options/1'"`
 	Quick       bool   `name:"quick"       help:"Shallow single-branch clone (--depth=1 --single-branch)"                short:"Q"                                           clib:"terse='Quick clone',group='Options/1'"`
 	Method      string `name:"method"      help:"Clone method"                                                                                        placeholder:"<method>" clib:"terse='Clone method',enum='ssh,https',group='Options/1'" default:"ssh" enum:"ssh,https,http" env:"CLONE_METHOD"`
-	Mirror      bool   `name:"mirror"      help:"Create a mirror clone"                                                                                                      clib:"terse='Mirror clone',group='Options/1'"`
+	Mirror      bool   `name:"mirror"      help:"Create a mirror clone"                                                                                                      clib:"terse='Mirror clone',group='Options/1'"                                                                                     xor:"fetch"`
 	VCS         string `name:"vcs"         help:"Version control system"                                                                              placeholder:"<vcs>"    clib:"terse='VCS',group='Options/1'"                           default:"git" enum:"git,jj"         env:"CLONE_VCS"`
 	Directory   string `name:"directory"   help:"Clone into a specific directory"                                        short:"d" aliases:"dir"      placeholder:"<path>"   clib:"terse='Directory',group='Options/2'"                                                                            type:"path" xor:"location"`
 	Temp        bool   `name:"temp"        help:"Clone into a temporary directory"                                       short:"T"                                           clib:"terse='Temporary directory',group='Options/2'"                                                                              xor:"location"`
 	Print       bool   `name:"print"       help:"Print temp directory path to stdout (requires --temp; implies --quiet)"                                                     clib:"terse='Print temp path',group='Options/2'"`
-	Force       bool   `name:"force"       help:"Overwrite existing clones"                                              short:"f"                                           clib:"terse='Force overwrite',group='Options/3'"`
+	Fetch       bool   `name:"fetch"       help:"Fetch updates for existing clones instead of skipping"                                                                      clib:"terse='Fetch existing',group='Options/3'"                                                                                   xor:"fetch"`
+	Force       bool   `name:"force"       help:"Overwrite existing clones"                                              short:"f"                                           clib:"terse='Force overwrite',group='Options/3'"                                                                                  xor:"fetch"`
 	Dry         bool   `name:"dry"         help:"Show what would be cloned without cloning"                              short:"n" aliases:"dry-run"                         clib:"terse='Dry run',group='Options/3'"`
 	Parallelism int    `name:"parallelism" help:"Number of parallel clones"                                              short:"P"                    placeholder:"<n>"      clib:"terse='Parallelism',group='Options/3'"                   default:"20"`
 	Quiet       bool   `name:"quiet"       help:"Suppress informational output"                                          short:"q"                                           clib:"terse='Quiet',group='Options/4'"                                                                                            xor:"verbosity"`
@@ -378,6 +379,10 @@ func buildExamplesSection() help.Section {
 				{
 					Comment: "Clone from an SSH clone URL",
 					Command: "clone git@github.com:owner/repo.git",
+				},
+				{
+					Comment: "Fetch existing repos, clone new ones",
+					Command: "clone --fetch --language=Go",
 				},
 			},
 		},

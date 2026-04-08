@@ -29,6 +29,36 @@ type cloneTask struct {
 	result *fx.TaskResult
 }
 
+type fetchTask struct {
+	fetcher *Fetcher
+	result  *fx.TaskResult
+}
+
+type Fetcher struct {
+	BinGit  string
+	BinJJ   string
+	Dest    string
+	Label   string
+	RepoURL string
+	Slug    string
+	VCS     string
+
+	Done bool
+	Err  error
+}
+
+func NewFetcher(target CloneTarget) *Fetcher {
+	return &Fetcher{
+		BinGit:  target.BinGit,
+		BinJJ:   target.BinJJ,
+		Dest:    target.Dest,
+		Label:   target.Label,
+		RepoURL: target.RepoURL,
+		Slug:    target.Slug,
+		VCS:     target.VCS,
+	}
+}
+
 type Cloner struct {
 	BinGit       string
 	BinJJ        string
@@ -180,19 +210,32 @@ func showOverallProgress(repoCount int) bool {
 	return repoCount >= minOverallProgressRepos
 }
 
-func cloneGroupOptions(parallelism, repoCount int) []clog.GroupOption {
+func groupFooterLabel(cloners []*Cloner, fetchers []*Fetcher) (string, string) {
+	hasClones := len(cloners) > 0
+	hasFetches := len(fetchers) > 0
+	switch {
+	case hasClones && hasFetches:
+		return "Syncing", "Synced"
+	case hasFetches:
+		return "Fetching", "Fetched"
+	default:
+		return "Cloning", "Cloned"
+	}
+}
+
+func groupOptions(parallelism, taskCount int, activeLabel, doneLabel string) []clog.GroupOption {
 	options := []clog.GroupOption{
 		clog.WithParallelism(parallelism),
 		clog.WithHideDone(),
 		clog.WithMaxHeightPercent(0.5), //nolint:mnd // half the terminal window
 	}
-	if showOverallProgress(repoCount) {
+	if showOverallProgress(taskCount) {
 		options = append(options, clog.WithFooter(
-			clog.Spinner("Cloning"),
+			clog.Spinner(activeLabel),
 			func(done, total int, u *clog.Update) {
-				msg := "Cloning"
+				msg := activeLabel
 				if done == total {
-					msg = "Cloned"
+					msg = doneLabel
 				}
 				u.Msg(msg).Fraction("progress", done, total).Send()
 			},
@@ -270,12 +313,69 @@ func logCloneSucceeded(baseDir string, succeeded []*Cloner) {
 	}
 }
 
+func fetchLinks(fetchers []*Fetcher) []clog.Link {
+	links := make([]clog.Link, len(fetchers))
+	for i, f := range fetchers {
+		links[i] = clog.Link{Text: f.Label, URL: f.RepoURL}
+	}
+	return links
+}
+
+func logFetchFailed(failed []*Fetcher) {
+	links := fetchLinks(failed)
+	if len(links) == 1 {
+		e := clog.Error().Link("repository", links[0].URL, links[0].Text)
+		if failed[0].Err != nil {
+			e = e.Str("reason", failed[0].Err.Error())
+		}
+		e.Msg("Fetch failed")
+		return
+	}
+	e := clog.Error().
+		Links("repositories", links).
+		Int("total", len(links))
+	for _, f := range failed {
+		if f.Err != nil {
+			e = e.Str(f.Label, f.Err.Error())
+		}
+	}
+	e.Msg("Fetch failed")
+}
+
+func logFetchResult(all, failed []*Fetcher) {
+	if len(failed) > 0 {
+		logFetchFailed(failed)
+	}
+
+	if len(all) > len(failed) {
+		failedSet := make(map[*Fetcher]struct{}, len(failed))
+		for _, f := range failed {
+			failedSet[f] = struct{}{}
+		}
+		succeeded := make([]*Fetcher, 0, len(all)-len(failed))
+		for _, f := range all {
+			if _, ok := failedSet[f]; !ok {
+				succeeded = append(succeeded, f)
+			}
+		}
+		links := fetchLinks(succeeded)
+		if len(links) == 1 {
+			clog.Log(LevelSuccess).Link("repository", links[0].URL, links[0].Text).Msg("Fetched")
+		} else {
+			clog.Log(LevelSuccess).
+				Links("repositories", links).
+				Int("total", len(links)).
+				Msg("Fetched")
+		}
+	}
+}
+
 func executeClones(ctx context.Context, cli *CLI, baseDir string, targets []CloneTarget) error {
-	cloners, err := prepareCloners(targets, !cli.Quiet, !cli.Dry, cli.Force)
+	cloners, fetchers, err := prepareCloners(targets, !cli.Quiet, !cli.Dry, cli.Force, cli.Fetch)
 	if err != nil {
 		return err
 	}
-	if len(cloners) == 0 {
+	if len(cloners) == 0 && len(fetchers) == 0 {
 		return nil
 	}
 
@@ -283,21 +383,24 @@ func executeClones(ctx context.Context, cli *CLI, baseDir string, targets []Clon
 		for _, cloner := range cloners {
 			clog.Dry().Msg(cloner.DryRunCommand())
 		}
+		for _, fetcher := range fetchers {
+			clog.Dry().Msg(fetcher.DryRunCommand())
+		}
 		return nil
 	}
 
-	var cloneErr error
+	var execErr error
 	if cli.Quiet {
-		cloneErr = cloneQuiet(ctx, baseDir, cloners, cli.Parallelism)
+		execErr = executeQuiet(ctx, baseDir, cloners, fetchers, cli.Parallelism)
 	} else {
-		cloneErr = cloneWithProgress(ctx, baseDir, cloners, cli.Parallelism, cli.Verbose)
+		execErr = executeWithProgress(ctx, baseDir, cloners, fetchers, cli.Parallelism, cli.Verbose)
 	}
 
-	if cloneErr != nil {
+	if execErr != nil {
 		cleanupIncompleteClones(cloners)
 	}
 
-	return cloneErr
+	return execErr
 }
 
 func prepareCloners(
@@ -305,18 +408,24 @@ func prepareCloners(
 	warn bool,
 	createParents bool,
 	force bool,
-) ([]*Cloner, error) {
+	fetch bool,
+) ([]*Cloner, []*Fetcher, error) {
 	cloners := make([]*Cloner, 0, len(targets))
+	var fetchers []*Fetcher
 	var skipped []CloneTarget
 	for _, target := range targets {
 		if createParents {
 			if err := ensureCloneParent(target.Dest); err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		exists, err := pathExists(target.Dest)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
+		}
+		if exists && fetch {
+			fetchers = append(fetchers, NewFetcher(target))
+			continue
 		}
 		if exists && !force {
 			skipped = append(skipped, target)
@@ -324,7 +433,7 @@ func prepareCloners(
 		}
 		if exists {
 			if err := os.RemoveAll(target.Dest); err != nil {
-				return nil, fmt.Errorf("removing existing clone %s: %w", target.Dest, err)
+				return nil, nil, fmt.Errorf("removing existing clone %s: %w", target.Dest, err)
 			}
 		}
 		cloners = append(cloners, NewCloner(target))
@@ -340,10 +449,16 @@ func prepareCloners(
 			clog.Warn().Links("repositories", links).Msg("Skipping")
 		}
 	}
-	return cloners, nil
+	return cloners, fetchers, nil
 }
 
-func cloneQuiet(ctx context.Context, baseDir string, cloners []*Cloner, parallelism int) error {
+func executeQuiet(
+	ctx context.Context,
+	baseDir string,
+	cloners []*Cloner,
+	fetchers []*Fetcher,
+	parallelism int,
+) error {
 	if parallelism < 1 {
 		parallelism = 1
 	}
@@ -351,7 +466,8 @@ func cloneQuiet(ctx context.Context, baseDir string, cloners []*Cloner, parallel
 	sem := make(chan struct{}, parallelism)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	var failed []*Cloner
+	var failedClones []*Cloner
+	var failedFetches []*Fetcher
 	var errs []error
 
 	for _, cloner := range cloners {
@@ -366,7 +482,26 @@ func cloneQuiet(ctx context.Context, baseDir string, cloners []*Cloner, parallel
 			if err := cloner.Run(ctx, nil, nil); err != nil {
 				cloner.Err = err
 				mu.Lock()
-				failed = append(failed, cloner)
+				failedClones = append(failedClones, cloner)
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+		})
+	}
+
+	for _, fetcher := range fetchers {
+		wg.Go(func() {
+			select {
+			case sem <- struct{}{}:
+			case <-ctx.Done():
+				return
+			}
+			defer func() { <-sem }()
+
+			if err := fetcher.Run(ctx, nil, nil); err != nil {
+				fetcher.Err = err
+				mu.Lock()
+				failedFetches = append(failedFetches, fetcher)
 				errs = append(errs, err)
 				mu.Unlock()
 			}
@@ -378,20 +513,24 @@ func cloneQuiet(ctx context.Context, baseDir string, cloners []*Cloner, parallel
 		return ctx.Err()
 	}
 
-	logCloneResult(baseDir, cloners, failed)
+	logCloneResult(baseDir, cloners, failedClones)
+	logFetchResult(fetchers, failedFetches)
 	return errors.Join(errs...)
 }
 
-func cloneWithProgress(
+func executeWithProgress(
 	ctx context.Context,
 	baseDir string,
 	cloners []*Cloner,
+	fetchers []*Fetcher,
 	parallelism int,
 	verbose bool,
 ) error {
-	group := clog.Group(ctx, cloneGroupOptions(parallelism, len(cloners))...)
-	tasks := make([]cloneTask, 0, len(cloners))
+	taskCount := len(cloners) + len(fetchers)
+	activeLabel, doneLabel := groupFooterLabel(cloners, fetchers)
+	group := clog.Group(ctx, groupOptions(parallelism, taskCount, activeLabel, doneLabel)...)
 
+	cloneTasks := make([]cloneTask, 0, len(cloners))
 	for _, cloner := range cloners {
 		stats := &atomic.Pointer[transferStats]{}
 		b := clog.Bar(
@@ -407,9 +546,28 @@ func cloneWithProgress(
 		result := group.Add(b).Progress(func(ctx context.Context, update *clog.Update) error {
 			return cloner.Run(ctx, update, stats)
 		})
-		tasks = append(tasks, cloneTask{
+		cloneTasks = append(cloneTasks, cloneTask{
 			cloner: cloner,
 			result: result,
+		})
+	}
+
+	fTasks := make([]fetchTask, 0, len(fetchers))
+	for _, fetcher := range fetchers {
+		stats := &atomic.Pointer[transferStats]{}
+		b := clog.Bar(
+			"Fetching",
+			1,
+			cloneBarOptions(verbose, stats)...).
+			Symbol("·").
+			Spinner().
+			Link("repository", fetcher.RepoURL, fetcher.Label)
+		result := group.Add(b).Progress(func(ctx context.Context, update *clog.Update) error {
+			return fetcher.Run(ctx, update, stats)
+		})
+		fTasks = append(fTasks, fetchTask{
+			fetcher: fetcher,
+			result:  result,
 		})
 	}
 
@@ -419,12 +577,20 @@ func cloneWithProgress(
 		return ctx.Err()
 	}
 
-	var failed []*Cloner
+	var failedClones []*Cloner
+	var failedFetches []*Fetcher
 	var errs []error
-	for _, task := range tasks {
+	for _, task := range cloneTasks {
 		if err := task.result.Silent(); err != nil {
 			task.cloner.Err = err
-			failed = append(failed, task.cloner)
+			failedClones = append(failedClones, task.cloner)
+			errs = append(errs, err)
+		}
+	}
+	for _, task := range fTasks {
+		if err := task.result.Silent(); err != nil {
+			task.fetcher.Err = err
+			failedFetches = append(failedFetches, task.fetcher)
 			errs = append(errs, err)
 		}
 	}
@@ -432,7 +598,8 @@ func cloneWithProgress(
 		errs = append(errs, waitErr)
 	}
 
-	logCloneResult(baseDir, cloners, failed)
+	logCloneResult(baseDir, cloners, failedClones)
+	logFetchResult(fetchers, failedFetches)
 	return errors.Join(errs...)
 }
 
@@ -490,20 +657,20 @@ func (c *Cloner) Run(
 func (c *Cloner) checkoutPR(ctx context.Context) error {
 	prRef := fmt.Sprintf("refs/pull/%s/head:%s", c.PullRequest, c.PRHeadRef)
 
-	if err := c.runCommandInDir(ctx, c.Dest, c.BinGit, []string{
+	if err := runCommandInDir(ctx, c.Dest, c.BinGit, []string{
 		"fetch", "origin", prRef, "--no-tags", "--quiet",
 	}); err != nil {
 		return fmt.Errorf("fetching PR #%s: %w", c.PullRequest, err)
 	}
 
 	if c.VCS == vcsJJ {
-		if err := c.runCommandInDir(ctx, c.Dest, c.BinJJ, []string{"git", "import"}); err != nil {
+		if err := runCommandInDir(ctx, c.Dest, c.BinJJ, []string{"git", "import"}); err != nil {
 			return fmt.Errorf("importing git refs: %w", err)
 		}
-		return c.runCommandInDir(ctx, c.Dest, c.BinJJ, []string{"new", c.PRHeadRef, "--quiet"})
+		return runCommandInDir(ctx, c.Dest, c.BinJJ, []string{"new", c.PRHeadRef, "--quiet"})
 	}
 
-	return c.runCommandInDir(ctx, c.Dest, c.BinGit, []string{"checkout", c.PRHeadRef, "--quiet"})
+	return runCommandInDir(ctx, c.Dest, c.BinGit, []string{"checkout", c.PRHeadRef, "--quiet"})
 }
 
 func (c *Cloner) runJJClone(
@@ -514,7 +681,7 @@ func (c *Cloner) runJJClone(
 	if err := c.runGitClone(ctx, update, stats); err != nil {
 		return err
 	}
-	return c.runCommandInDir(ctx, c.Dest, c.BinJJ, c.jjInitArgs())
+	return runCommandInDir(ctx, c.Dest, c.BinJJ, c.jjInitArgs())
 }
 
 func (c *Cloner) runGitClone(
@@ -524,7 +691,7 @@ func (c *Cloner) runGitClone(
 ) error {
 	args := c.gitCloneArgs(update != nil)
 	if update == nil {
-		return c.runCommandInDir(ctx, "", c.BinGit, args)
+		return runCommandInDir(ctx, "", c.BinGit, args)
 	}
 
 	//nolint:gosec // resolved via LookPath
@@ -579,7 +746,7 @@ func (c *Cloner) runGitClone(
 	return nil
 }
 
-func (c *Cloner) runCommandInDir(ctx context.Context, dir, bin string, args []string) error {
+func runCommandInDir(ctx context.Context, dir, bin string, args []string) error {
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Dir = dir
 	output, err := cmd.CombinedOutput()
@@ -642,6 +809,114 @@ func (c *Cloner) DryRunCommand() string {
 		}
 	}
 
+	return strings.Join(lines, "\n")
+}
+
+func (f *Fetcher) Run(
+	ctx context.Context,
+	update *clog.Update,
+	stats *atomic.Pointer[transferStats],
+) error {
+	if update != nil {
+		update.SetTotal(1).SetProgress(0).Send()
+	}
+
+	var err error
+	switch f.VCS {
+	case vcsJJ:
+		err = f.runJJFetch(ctx, update, stats)
+	default:
+		err = f.runGitFetch(ctx, update, stats)
+	}
+	if err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if update != nil {
+			update.Msg("Fetch failed").
+				SetSymbol("✘").
+				SetLevel(clog.LevelError).
+				Str("reason", err.Error()).
+				Send()
+		}
+		return err
+	}
+
+	f.Done = true
+	if update != nil {
+		update.Msg("Fetched").
+			SetSymbol("✔︎").
+			SetLevel(LevelSuccess).
+			SetTotal(1).
+			SetProgress(1).
+			Send()
+	}
+	return nil
+}
+
+func (f *Fetcher) runGitFetch(
+	ctx context.Context,
+	update *clog.Update,
+	stats *atomic.Pointer[transferStats],
+) error {
+	args := f.gitFetchArgs(update != nil)
+	if update == nil {
+		return runCommandInDir(ctx, "", f.BinGit, args)
+	}
+
+	//nolint:gosec // resolved via LookPath
+	cmd := exec.CommandContext(ctx, f.BinGit, args...)
+	cmd.Stdout = io.Discard
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	cb := &cloneCallback{update: update, transferStats: stats}
+	stderrText, parseErr := relayGitProgress(stderr, cb)
+	waitErr := cmd.Wait()
+	if parseErr != nil {
+		return parseErr
+	}
+	if waitErr != nil {
+		return formatCloneError(waitErr, stderrText)
+	}
+	return nil
+}
+
+func (f *Fetcher) runJJFetch(
+	ctx context.Context,
+	update *clog.Update,
+	stats *atomic.Pointer[transferStats],
+) error {
+	if err := f.runGitFetch(ctx, update, stats); err != nil {
+		return err
+	}
+	return runCommandInDir(ctx, "", f.BinJJ, f.jjImportArgs())
+}
+
+func (f *Fetcher) gitFetchArgs(includeProgress bool) []string {
+	args := []string{"-C", f.Dest, "fetch"}
+	if includeProgress {
+		args = append(args, "--progress")
+	}
+	return args
+}
+
+func (f *Fetcher) jjImportArgs() []string {
+	return []string{"-R", f.Dest, "git", "import", "--quiet"}
+}
+
+func (f *Fetcher) DryRunCommand() string {
+	lines := []string{formatCommand(f.BinGit, f.gitFetchArgs(false))}
+	if f.VCS == vcsJJ {
+		lines = append(lines, formatCommand(f.BinJJ, f.jjImportArgs()))
+	}
 	return strings.Join(lines, "\n")
 }
 
