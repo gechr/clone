@@ -67,6 +67,7 @@ func main() {
 
 func configureClog() {
 	level.Register(LevelSuccess, "success", "OK")
+	clog.SetOutput(clog.Stderr(clog.ColorAuto))
 
 	clog.SetParts(clog.PartSymbol, clog.PartMessage, clog.PartFields)
 	clog.SetLevelAlign(clog.AlignNone)

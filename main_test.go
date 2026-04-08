@@ -1,8 +1,11 @@
 package main
 
 import (
+	"io"
+	"os"
 	"testing"
 
+	"github.com/gechr/clog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -138,4 +141,44 @@ func TestBuildParserMethodHTTP(t *testing.T) {
 
 	cli.Normalize()
 	assert.Equal(t, methodHTTPS, cli.Method)
+}
+
+func TestConfigureClogWritesErrorsToStderr(t *testing.T) {
+	originalStdout := os.Stdout
+	originalStderr := os.Stderr
+	originalLogger := clog.Default
+
+	stdoutR, stdoutW, err := os.Pipe()
+	require.NoError(t, err)
+	stderrR, stderrW, err := os.Pipe()
+	require.NoError(t, err)
+
+	os.Stdout = stdoutW
+	os.Stderr = stderrW
+	clog.Default = clog.New(clog.Stdout(clog.ColorNever))
+
+	t.Cleanup(func() {
+		os.Stdout = originalStdout
+		os.Stderr = originalStderr
+		clog.Default = originalLogger
+		_ = stdoutR.Close()
+		_ = stdoutW.Close()
+		_ = stderrR.Close()
+		_ = stderrW.Close()
+	})
+
+	configureClog()
+	clog.SetColorMode(clog.ColorNever)
+	clog.Error().Msg("boom")
+
+	require.NoError(t, stdoutW.Close())
+	require.NoError(t, stderrW.Close())
+
+	stdout, err := io.ReadAll(stdoutR)
+	require.NoError(t, err)
+	stderr, err := io.ReadAll(stderrR)
+	require.NoError(t, err)
+
+	assert.Equal(t, "", string(stdout))
+	assert.Contains(t, string(stderr), "✘ boom")
 }
