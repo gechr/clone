@@ -80,7 +80,8 @@ type CLI struct {
 	binGit string `kong:"-"`
 	binJJ  string `kong:"-"`
 
-	TopicFilters [][]string `kong:"-"`
+	LanguageFilters [][]string `kong:"-"`
+	TopicFilters    [][]string `kong:"-"`
 }
 
 func vcsDefault() string {
@@ -108,7 +109,19 @@ func (c *CLI) Validate() error {
 		return nil
 	}
 	c.Normalize()
-	topicFilters, err := parseTopicFilters(c.Topics)
+	languageGroups, err := parseFilters("language", c.Languages)
+	if err != nil {
+		return err
+	}
+	var langs []string
+	for _, group := range languageGroups {
+		langs = append(langs, group...)
+	}
+	c.Languages = uniqueFold(langs)
+	if len(c.Languages) > 0 {
+		c.LanguageFilters = [][]string{c.Languages}
+	}
+	topicFilters, err := parseFilters("topic", c.Topics)
 	if err != nil {
 		return err
 	}
@@ -131,23 +144,23 @@ func (c *CLI) Validate() error {
 	return nil
 }
 
-func parseTopicFilters(values []string) ([][]string, error) {
+func parseFilters(key string, values []string) ([][]string, error) {
 	var filters [][]string
 	for _, value := range values {
 		if strings.TrimSpace(value) == "" {
-			return nil, fmt.Errorf("invalid topic filter %q", value)
+			return nil, fmt.Errorf("invalid %s filter %q", key, value)
 		}
 		for clause := range strings.SplitSeq(value, ",") {
 			clause = strings.TrimSpace(clause)
 			if clause == "" {
-				return nil, fmt.Errorf("invalid topic filter %q", value)
+				return nil, fmt.Errorf("invalid %s filter %q", key, value)
 			}
 
 			var group []string
 			for option := range strings.SplitSeq(clause, "/") {
 				option = strings.TrimSpace(option)
 				if option == "" {
-					return nil, fmt.Errorf("invalid topic filter %q", value)
+					return nil, fmt.Errorf("invalid %s filter %q", key, value)
 				}
 				group = append(group, option)
 			}

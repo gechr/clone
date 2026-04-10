@@ -237,15 +237,8 @@ func resolveCloneTargets(
 			var ownerRepos []repoInfo
 			s := clog.Spinner("Fetching").
 				Link("owner", "https://github.com/"+owner, owner)
-			switch len(cli.Languages) {
-			case 0:
-			case 1:
-				s = s.Str("language", cli.Languages[0])
-			default:
-				s = s.Strs("languages", cli.Languages)
-			}
-			if len(cli.TopicFilters) > 0 {
-				s = s.Str("topics", formatTopicFilters(cli.TopicFilters))
+			if f := formatFilters(cli.LanguageFilters, cli.TopicFilters); f != "" {
+				s = s.Str("filter", f)
 			}
 			listErr := s.Wait(ctx, func(_ context.Context) error {
 				var listErr error
@@ -516,6 +509,14 @@ func formatTopicFilters(filters [][]string) string {
 		parts = append(parts, part)
 	}
 	return formatAND(parts)
+}
+
+func formatFilters(groups ...[][]string) string {
+	var combined [][]string
+	for _, g := range groups {
+		combined = append(combined, g...)
+	}
+	return formatTopicFilters(combined)
 }
 
 func formatAND(values []string) string {

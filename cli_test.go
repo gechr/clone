@@ -56,35 +56,38 @@ func TestCLIValidateDeduplicatesTopicFilters(t *testing.T) {
 	require.Equal(t, [][]string{{"go", "cli"}, {"go"}}, cli.TopicFilters)
 }
 
-func TestParseTopicFiltersCommaMeansAND(t *testing.T) {
+func TestParseFiltersCommaMeansAND(t *testing.T) {
 	t.Parallel()
 
-	got, err := parseTopicFilters([]string{"backend,cli"})
+	got, err := parseFilters("topic", []string{"backend,cli"})
 	require.NoError(t, err)
 	require.Equal(t, [][]string{{"backend"}, {"cli"}}, got)
 }
 
-func TestParseTopicFiltersSlashMeansOR(t *testing.T) {
+func TestParseFiltersSlashMeansOR(t *testing.T) {
 	t.Parallel()
 
-	got, err := parseTopicFilters([]string{"backend/cli"})
+	got, err := parseFilters("topic", []string{"backend/cli"})
 	require.NoError(t, err)
 	require.Equal(t, [][]string{{"backend", "cli"}}, got)
 }
 
-func TestParseTopicFiltersRepeatedFlagsMeanAND(t *testing.T) {
+func TestParseFiltersRepeatedFlagsMeanAND(t *testing.T) {
 	t.Parallel()
 
-	got, err := parseTopicFilters([]string{"backend", "cli"})
+	got, err := parseFilters("topic", []string{"backend", "cli"})
 	require.NoError(t, err)
 	require.Equal(t, [][]string{{"backend"}, {"cli"}}, got)
 }
 
-func TestParseTopicFiltersRejectsEmptyString(t *testing.T) {
+func TestParseFiltersRejectsEmptyString(t *testing.T) {
 	t.Parallel()
 
-	_, err := parseTopicFilters([]string{""})
+	_, err := parseFilters("topic", []string{""})
 	require.EqualError(t, err, `invalid topic filter ""`)
+
+	_, err = parseFilters("language", []string{""})
+	require.EqualError(t, err, `invalid language filter ""`)
 }
 
 func TestCLIValidateParsesTopicFilters(t *testing.T) {
@@ -99,6 +102,21 @@ func TestCLIValidateParsesTopicFilters(t *testing.T) {
 
 	require.NoError(t, cli.Validate())
 	require.Equal(t, "(backend OR cli) AND api", formatTopicFilters(cli.TopicFilters))
+}
+
+func TestCLIValidateParsesLanguageFilters(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:       []string{"all"},
+		Languages:   []string{"a/b"},
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+	}
+
+	require.NoError(t, cli.Validate())
+	require.Equal(t, []string{"a", "b"}, cli.Languages)
+	require.Equal(t, [][]string{{"a", "b"}}, cli.LanguageFilters)
 }
 
 func TestCLIValidateFetchAlone(t *testing.T) {
