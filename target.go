@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/gechr/clog"
+	"github.com/gechr/clog/fx"
 )
 
 type repoRequest struct {
@@ -235,11 +236,7 @@ func resolveCloneTargets(
 	if needQuery {
 		for _, owner := range requestedOwners(requests) {
 			var ownerRepos []repoInfo
-			s := clog.Spinner("Fetching").
-				Link("owner", "https://github.com/"+owner, owner)
-			if f := formatFilters(cli.LanguageFilters, cli.TopicFilters); f != "" {
-				s = s.Str("filter", f)
-			}
+			s := fetchSpinner(owner, cli.LanguageFilters, cli.TopicFilters)
 			listErr := s.Wait(ctx, func(_ context.Context) error {
 				var listErr error
 				ownerRepos, listErr = lister.ListOwnerRepos(owner, repoListOptions{
@@ -511,12 +508,27 @@ func formatTopicFilters(filters [][]string) string {
 	return formatAND(parts)
 }
 
-func formatFilters(groups ...[][]string) string {
-	var combined [][]string
-	for _, g := range groups {
-		combined = append(combined, g...)
+func fetchSpinner(owner string, languageFilters, topicFilters [][]string) *fx.Builder {
+	s := clog.Spinner("Fetching").
+		Link("owner", "https://github.com/"+owner, owner)
+	if f := formatTopicFilters(languageFilters); f != "" {
+		s = s.Str(pluralize("language", languageFilters), f)
 	}
-	return formatTopicFilters(combined)
+	if f := formatTopicFilters(topicFilters); f != "" {
+		s = s.Str(pluralize("topic", topicFilters), f)
+	}
+	return s
+}
+
+func pluralize(singular string, filters [][]string) string {
+	n := 0
+	for _, group := range filters {
+		n += len(group)
+	}
+	if n > 1 {
+		return singular + "s"
+	}
+	return singular
 }
 
 func formatAND(values []string) string {

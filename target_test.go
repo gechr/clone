@@ -444,56 +444,37 @@ func TestFormatTopicFilters(t *testing.T) {
 	}
 }
 
-func TestFormatFilters(t *testing.T) {
+func TestPluralize(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name            string
-		languageFilters [][]string
-		topicFilters    [][]string
-		want            string
+		name     string
+		singular string
+		filters  [][]string
+		want     string
 	}{
 		{
-			name:            "languages only, single",
-			languageFilters: [][]string{{"a"}},
-			want:            "a",
+			name:     "single value",
+			singular: "language",
+			filters:  [][]string{{"go"}},
+			want:     "language",
 		},
 		{
-			name:            "languages only, multiple",
-			languageFilters: [][]string{{"a", "b"}},
-			want:            "a OR b",
+			name:     "multiple in one group",
+			singular: "language",
+			filters:  [][]string{{"go", "python"}},
+			want:     "languages",
 		},
 		{
-			name:         "topics only, single",
-			topicFilters: [][]string{{"a"}},
-			want:         "a",
+			name:     "multiple groups",
+			singular: "topic",
+			filters:  [][]string{{"foo"}, {"bar"}},
+			want:     "topics",
 		},
 		{
-			name:         "topics only, multiple",
-			topicFilters: [][]string{{"a"}, {"b"}},
-			want:         "a AND b",
-		},
-		{
-			name:            "single language and single topic",
-			languageFilters: [][]string{{"a"}},
-			topicFilters:    [][]string{{"b"}},
-			want:            "a AND b",
-		},
-		{
-			name:            "multiple languages and single topic",
-			languageFilters: [][]string{{"a", "b"}},
-			topicFilters:    [][]string{{"c"}},
-			want:            "(a OR b) AND c",
-		},
-		{
-			name:            "multiple languages and multiple topics",
-			languageFilters: [][]string{{"a", "b"}},
-			topicFilters:    [][]string{{"c"}, {"d"}},
-			want:            "(a OR b) AND c AND d",
-		},
-		{
-			name: "empty",
-			want: "",
+			name:     "empty",
+			singular: "topic",
+			want:     "topic",
 		},
 	}
 
@@ -501,7 +482,7 @@ func TestFormatFilters(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, test.want, formatFilters(test.languageFilters, test.topicFilters))
+			require.Equal(t, test.want, pluralize(test.singular, test.filters))
 		})
 	}
 }
