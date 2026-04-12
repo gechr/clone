@@ -8,7 +8,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.2
 	github.com/alecthomas/kong v1.15.0
 	github.com/cli/go-gh/v2 v2.13.0
-	github.com/gechr/clib v0.3.2
+	github.com/gechr/clib v0.3.6
 	github.com/gechr/clog v0.8.5
 	github.com/stretchr/testify v1.11.1
 )
@@ -227,7 +227,7 @@ require (
 	golang.org/x/mod v0.34.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
-	golang.org/x/term v0.41.0 // indirect
+	golang.org/x/term v0.42.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	golang.org/x/tools v0.43.0 // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
