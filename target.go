@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,6 +17,7 @@ import (
 type repoRequest struct {
 	Dir           string
 	ExplicitOwner bool
+	Host          string
 	Name          string
 	Owner         string
 	Source        string
@@ -61,15 +61,9 @@ func parseRepoRequest(input, defaultOwner string) (repoRequest, error) {
 		dir = right
 	}
 
-	if owner, name, source, pr, ok := parseRepoURL(repoText); ok {
-		return repoRequest{
-			ExplicitOwner: true,
-			Owner:         owner,
-			Name:          name,
-			Dir:           dir,
-			Source:        source,
-			PullRequest:   pr,
-		}, nil
+	if req, ok := parseRepoURL(repoText); ok {
+		req.Dir = dir
+		return req, nil
 	}
 
 	owner := defaultOwner
@@ -109,79 +103,14 @@ func parseRepoRequest(input, defaultOwner string) (repoRequest, error) {
 	}, nil
 }
 
-func parseRepoURL(repoText string) (string, string, string, string, bool) {
-	switch {
-	case strings.HasPrefix(repoText, "git@github.com:"):
-		return parseGitHubPath(
-			strings.TrimPrefix(repoText, "git@github.com:"),
-			"git@github.com:%s.git",
-		)
-	case strings.HasPrefix(repoText, "https://") || strings.HasPrefix(repoText, "http://"):
-		parsed, err := url.Parse(repoText)
-		if err != nil {
-			return "", "", "", "", false
-		}
-		host := strings.TrimPrefix(strings.ToLower(parsed.Hostname()), "www.")
-		if host != "github.com" {
-			return "", "", "", "", false
-		}
-		path := strings.TrimPrefix(parsed.Path, "/")
-		if parsed.Fragment != "" {
-			path += "#" + parsed.Fragment
-		}
-		return parseGitHubPath(
-			path,
-			fmt.Sprintf("%s://%s/%%s.git", parsed.Scheme, parsed.Host),
-		)
-	case strings.HasPrefix(repoText, "github.com/"):
-		return parseGitHubPath(
-			strings.TrimPrefix(repoText, "github.com/"),
-			"https://github.com/%s.git",
-		)
-	default:
-		return "", "", "", "", false
-	}
+func parseRepoURL(repoText string) (repoRequest, bool) {
+	return parseForgeURL(repoText)
 }
 
 const (
 	minPullSegments  = 4   // owner/repo/pull/N
 	maxRepoNameBytes = 255 // common filesystem NAME_MAX for a single path component
 )
-
-func parseGitHubPath(raw, sourceFmt string) (string, string, string, string, bool) {
-	clean := strings.TrimSuffix(raw, "/")
-
-	var owner, name, pr string
-	switch {
-	case strings.Contains(clean, "/pull/"):
-		segments := strings.Split(clean, "/")
-		if len(segments) >= minPullSegments {
-			owner = segments[0]
-			name = segments[1]
-			pr = segments[3]
-		}
-	case strings.Contains(clean, "#"):
-		path, fragment, _ := strings.Cut(clean, "#")
-		pr = fragment
-		owner, name, _ = strings.Cut(path, "/")
-	default:
-		owner, name, _ = strings.Cut(clean, "/")
-	}
-
-	if owner == "" || name == "" {
-		return "", "", "", "", false
-	}
-
-	trimmedName := strings.TrimSuffix(name, ".git")
-	var source string
-	if sourceFmt != "" {
-		source = fmt.Sprintf(sourceFmt, owner+"/"+trimmedName)
-	} else {
-		source = fmt.Sprintf("git@github.com:%s/%s.git", owner, trimmedName)
-	}
-
-	return owner, trimmedName, source, pr, true
-}
 
 func resolveCloneTargets(
 	ctx context.Context,
@@ -364,7 +293,7 @@ func resolveCloneTargets(
 			Mirror:        cli.Mirror,
 			Owner:         req.Owner,
 			Repo:          req.Name,
-			RepoURL:       "https://github.com/" + slug,
+			RepoURL:       repoWebURL(req.Host, slug),
 			SingleBranch:  cli.Quick,
 			Slug:          slug,
 			Source:        resolveCloneSource(cli.Method, req),

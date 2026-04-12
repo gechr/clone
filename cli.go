@@ -20,8 +20,8 @@ var version = "dev"
 const (
 	defaultParallelism = 20
 	keywordAll         = "all"
-	methodSSH          = "ssh"
-	methodHTTPS        = "https"
+	methodSSH          = schemeSSH
+	methodHTTPS        = schemeHTTPS
 	nameGit            = "git"
 	nameJJ             = "jj"
 	vcsGit             = nameGit

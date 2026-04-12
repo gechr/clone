@@ -112,6 +112,7 @@ func TestParseRepoRequestPRShorthand(t *testing.T) {
 			input: "https://github.com/owner/repo/pull/21",
 			want: repoRequest{
 				ExplicitOwner: true,
+				Host:          "github.com",
 				Owner:         "owner",
 				Name:          "repo",
 				PullRequest:   "21",
@@ -122,6 +123,7 @@ func TestParseRepoRequestPRShorthand(t *testing.T) {
 			input: "github.com/owner/repo#21",
 			want: repoRequest{
 				ExplicitOwner: true,
+				Host:          "github.com",
 				Owner:         "owner",
 				Name:          "repo",
 				PullRequest:   "21",
@@ -132,6 +134,7 @@ func TestParseRepoRequestPRShorthand(t *testing.T) {
 			input: "git@github.com:owner/repo.git",
 			want: repoRequest{
 				ExplicitOwner: true,
+				Host:          "github.com",
 				Owner:         "owner",
 				Name:          "repo",
 				Source:        "git@github.com:owner/repo.git",
