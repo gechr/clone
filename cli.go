@@ -45,11 +45,11 @@ type CLI struct {
 
 	Owner string `name:"owner" help:"GitHub owner/organization" short:"O" aliases:"org,organization" placeholder:"<owner>" clib:"terse='Owner/org',group='Filters/1'" env:"CLONE_OWNER"`
 
-	Archived   bool     `name:"archived"   help:"Include archived repositories"             aliases:"archive,archives"                       clib:"terse='Include archived',group='Filters/2'"`
-	Forked     bool     `name:"forked"     help:"Include forked repositories"               aliases:"fork,forks"                             clib:"terse='Include forked',group='Filters/2'"`
-	Languages  []string `name:"language"   help:"Filter by language (repeatable)" short:"l"                            placeholder:"<lang>"  clib:"terse='Language',group='Filters/2'"`
-	Topics     []string `name:"topic"      help:"Filter by topic (repeatable)"    short:"t"                            placeholder:"<topic>" clib:"terse='Topic',group='Filters/2'"`
-	Visibility string   `name:"visibility" help:"Filter by visibility"                                                 placeholder:"<viz>"   clib:"terse='Visibility',group='Filters/2'"       default:"all" enum:"all,public,private,internal"`
+	Archived   bool     `name:"archived"   help:"Include archived repositories"   aliases:"archive,archives" clib:"terse='Include archived',group='Filters/2'"`
+	Forked     bool     `name:"forked"     help:"Include forked repositories"     aliases:"fork,forks"       clib:"terse='Include forked',group='Filters/2'"`
+	Languages  []string `name:"language"   help:"Filter by language (repeatable)"                            clib:"terse='Language',group='Filters/2'"         short:"l" placeholder:"<lang>"`
+	Topics     []string `name:"topic"      help:"Filter by topic (repeatable)"                               clib:"terse='Topic',group='Filters/2'"            short:"t" placeholder:"<topic>"`
+	Visibility string   `name:"visibility" help:"Filter by visibility"                                       clib:"terse='Visibility',group='Filters/2'"                 placeholder:"<viz>"   default:"all" enum:"all,public,private,internal"`
 
 	IncludePatterns []string `name:"include-pattern" help:"Only clone repositories matching regex (repeatable)" short:"i" placeholder:"<regex>" clib:"hide-long,terse='Include (regex)',group='Filters/3'"`
 	Includes        []string `name:"include"         help:"Only clone repositories by exact name (repeatable)"            placeholder:"<name>"  clib:"no-indent,terse='Include',group='Filters/3'"`
@@ -57,25 +57,27 @@ type CLI struct {
 	ExcludePatterns []string `name:"exclude-pattern" help:"Skip repositories matching regex (repeatable)" short:"e" placeholder:"<regex>" clib:"hide-long,terse='Exclude (regex)',group='Filters/4'"`
 	Excludes        []string `name:"exclude"         help:"Skip repositories by exact name (repeatable)"            placeholder:"<name>"  clib:"no-indent,terse='Exclude',group='Filters/4'"`
 
-	Branch      string `name:"branch"      help:"Clone a specific branch"                                                short:"b" aliases:"bookmark" placeholder:"<name>"   clib:"terse='Branch',group='Options/1'"`
-	Depth       int    `name:"depth"       help:"Create a shallow clone of the given depth"                              short:"D"                    placeholder:"<n>"      clib:"terse='Depth',group='Options/1'"                                                                                            xor:"shallow"`
-	Quick       bool   `name:"quick"       help:"Shallow single-branch clone (--depth=1 --single-branch)"                short:"Q"                                           clib:"terse='Quick clone',group='Options/1'"                                                                                      xor:"shallow"`
-	Method      string `name:"method"      help:"Clone method"                                                                                        placeholder:"<method>" clib:"terse='Clone method',enum='ssh,https',group='Options/1'" default:"ssh" enum:"ssh,https,http" env:"CLONE_METHOD"`
-	Mirror      bool   `name:"mirror"      help:"Create a mirror clone"                                                                                                      clib:"terse='Mirror clone',group='Options/1'"                                                                                     xor:"fetch"`
-	VCS         string `name:"vcs"         help:"Version control system"                                                                              placeholder:"<vcs>"    clib:"terse='VCS',group='Options/1'"                           default:"git" enum:"git,jj"         env:"CLONE_VCS"`
-	Directory   string `name:"directory"   help:"Clone into a specific directory"                                        short:"d" aliases:"dir"      placeholder:"<path>"   clib:"terse='Directory',group='Options/2'"                                                                            type:"path" xor:"location"`
-	Temp        bool   `name:"temp"        help:"Clone into a temporary directory"                                       short:"T"                                           clib:"terse='Temporary directory',group='Options/2'"                                                                              xor:"location"`
-	Print       bool   `name:"print"       help:"Print temp directory path to stdout (requires --temp; implies --quiet)"                                                     clib:"terse='Print temp path',group='Options/2'"`
-	Fetch       bool   `name:"fetch"       help:"Fetch updates for existing clones instead of skipping"                                                                      clib:"terse='Fetch existing',group='Options/3'"                                                                                   xor:"fetch"`
-	Force       bool   `name:"force"       help:"Overwrite existing clones"                                              short:"f"                                           clib:"terse='Force overwrite',group='Options/3'"                                                                                  xor:"fetch"`
-	Dry         bool   `name:"dry"         help:"Show what would be cloned without cloning"                              short:"n" aliases:"dry-run"                         clib:"terse='Dry run',group='Options/3'"`
-	Parallelism int    `name:"parallelism" help:"Number of parallel clones"                                              short:"P"                    placeholder:"<n>"      clib:"terse='Parallelism',group='Options/3'"                   default:"20"`
-	Quiet       bool   `name:"quiet"       help:"Suppress informational output"                                          short:"q"                                           clib:"terse='Quiet',group='Options/4'"                                                                                            xor:"verbosity"`
-	Verbose     bool   `name:"verbose"     help:"Show additional progress information"                                   short:"v"                                           clib:"terse='Verbose',group='Options/4'"                                                                                          xor:"verbosity"`
-	Debug       bool   `name:"debug"       help:"Show debug logs"                                                                                                            clib:"terse='Debug logs',group='Options/4'"                                                                                       xor:"verbosity"`
+	Branch      string `name:"branch"      help:"Clone a specific branch"                                               short:"b" aliases:"bookmark" placeholder:"<name>"   clib:"terse='Branch',group='Options/1'"`
+	Depth       int    `name:"depth"       help:"Create a shallow clone of the given depth"                             short:"D"                    placeholder:"<n>"      clib:"terse='Depth',group='Options/1'"                         xor:"shallow"`
+	Quick       bool   "name:\"quick\"     help:\"Shallow single-branch clone (alias for `--depth=1 --single-branch`)\" short:\"Q\"                                         clib:\"terse='Quick clone',group='Options/1'\"                 xor:\"shallow\""
+	Method      string `name:"method"      help:"Clone method"                                                          short:"m"                    placeholder:"<method>" clib:"terse='Clone method',enum='ssh,https',group='Options/1'"                 default:"ssh" enum:"ssh,https,http" env:"CLONE_METHOD"`
+	Mirror      bool   `name:"mirror"      help:"Create a mirror clone"                                                                                                     clib:"terse='Mirror clone',group='Options/1'"                  xor:"fetch"`
+	VCS         string `name:"vcs"         help:"Version control system"                                                                              placeholder:"<vcs>"   clib:"terse='VCS',group='Options/1'"                           xor:"vcs"       default:"git" enum:"git,jj"         env:"CLONE_VCS"`
+	JJ          bool   "name:\"jj\"        help:\"Clone with `jj` (alias for `--vcs=jj`)\"                                                                                  clib:\"terse='Jujutsu',group='Options/1'\"                                                                                        xor:\"vcs\""
+	Git         bool   "name:\"git\"       help:\"Clone with `git` (alias for `--vcs=git`)\"                                                                                clib:\"terse='Git',group='Options/1'\"                                                                                            xor:\"vcs\""
+	Directory   string `name:"directory"   help:"Clone into a specific directory"                                        short:"d" aliases:"dir"      placeholder:"<path>"  clib:"terse='Directory',group='Options/2'"                     xor:"location"                                                         type:"path"`
+	Temp        bool   `name:"temp"        help:"Clone into a temporary directory"                                       short:"T"                                          clib:"terse='Temporary directory',group='Options/2'"           xor:"location"`
+	Print       bool   "name:\"print\"     help:\"Print temp directory path to stdout (requires `--temp`; implies `--quiet`)\"                                              clib:\"terse='Print temp path',group='Options/2'\""
+	Fetch       bool   `name:"fetch"       help:"Fetch updates for existing clones instead of skipping"                                                                     clib:"terse='Fetch existing',group='Options/3'"                xor:"fetch"`
+	Force       bool   `name:"force"       help:"Overwrite existing clones"                                              short:"f"                                          clib:"terse='Force overwrite',group='Options/3'"               xor:"fetch"`
+	Dry         bool   `name:"dry"         help:"Show what would be cloned without cloning"                              short:"n" aliases:"dry-run"                        clib:"terse='Dry run',group='Options/3'"`
+	Parallelism int    `name:"parallelism" help:"Number of parallel clones"                                              short:"P"                    placeholder:"<n>"     clib:"terse='Parallelism',group='Options/3'"                                   default:"20"`
+	Quiet       bool   `name:"quiet"       help:"Suppress informational output"                                          short:"q"                                          clib:"terse='Quiet',group='Options/4'"                         xor:"verbosity"`
+	Verbose     bool   `name:"verbose"     help:"Show additional progress information"                                   short:"v"                                          clib:"terse='Verbose',group='Options/4'"                       xor:"verbosity"`
+	Debug       bool   `name:"debug"       help:"Show debug logs"                                                                                                           clib:"terse='Debug logs',group='Options/4'"                    xor:"verbosity"`
 
-	Color   clog.ColorMode `name:"color"   help:"When to use color"           clib:"terse='Color mode',complete='values=auto always never',group='Miscellaneous/1'" default:"auto"`
-	Version bool           `name:"version" help:"Print version"     short:"V" clib:"terse='Version',group='Miscellaneous/3'"`
+	Color   clog.ColorMode `name:"color"   help:"When to use color" clib:"terse='Color mode',complete='values=auto always never',group='Miscellaneous/1'" default:"auto"`
+	Version bool           `name:"version" help:"Print version"     clib:"terse='Version',group='Miscellaneous/3'"                                                       short:"V"`
 
 	binGit string `kong:"-"`
 	binJJ  string `kong:"-"`
@@ -94,6 +96,11 @@ func vcsDefault() string {
 func (c *CLI) Normalize() {
 	if c.Method == "http" {
 		c.Method = methodHTTPS
+	}
+	if c.Git {
+		c.VCS = vcsGit
+	} else if c.JJ {
+		c.VCS = vcsJJ
 	}
 	c.Languages = uniqueFold(c.Languages)
 	if c.Quick && c.Depth == 0 {

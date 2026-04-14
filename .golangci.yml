@@ -24,6 +24,7 @@ linters:
     - paralleltest # noisy
     - perfsprint # noisy
     - prealloc # noisy
+    - tagalign # broken
     - tagliatelle # GitHub API uses camelCase
     - varnamelen # noisy
     - wrapcheck # noisy
