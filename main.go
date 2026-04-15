@@ -43,6 +43,11 @@ type userError struct {
 
 func (e *userError) Error() string { return e.msg }
 
+// isCanceled reports whether err (or the context) indicates a signal cancellation.
+func isCanceled(ctx context.Context, err error) bool {
+	return errors.Is(context.Cause(ctx), errInterrupted) || errors.Is(err, context.Canceled)
+}
+
 func main() {
 	configureClog()
 
@@ -182,7 +187,7 @@ func run() error {
 		defer func() { _ = os.Remove(baseDir) }() // remove temp dir if empty
 	}
 	if err != nil {
-		if errors.Is(context.Cause(ctx), errInterrupted) {
+		if isCanceled(ctx, err) {
 			return &userError{exitCode: exitCodeSignal}
 		}
 		if !errors.Is(err, errSilent) {
@@ -192,7 +197,7 @@ func run() error {
 	}
 
 	if err := executeClones(ctx, &cli, baseDir, targets); err != nil {
-		if errors.Is(context.Cause(ctx), errInterrupted) {
+		if isCanceled(ctx, err) {
 			return &userError{exitCode: exitCodeSignal}
 		}
 		if !errors.Is(err, errSilent) {
