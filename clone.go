@@ -644,6 +644,7 @@ func (c *Cloner) Run(
 
 	c.Done = true
 	if update != nil {
+		update.SetTotal(1).SetProgress(1).Send()
 		update.Msg("Cloned").
 			SetSymbol("✔︎").
 			SetLevel(LevelSuccess).
@@ -844,6 +845,7 @@ func (f *Fetcher) Run(
 
 	f.Done = true
 	if update != nil {
+		update.SetTotal(1).SetProgress(1).Send()
 		update.Msg("Fetched").
 			SetSymbol("✔︎").
 			SetLevel(LevelSuccess).
