@@ -133,7 +133,7 @@ func (c *CLI) Validate() error {
 		return err
 	}
 	c.TopicFilters = uniqueTopicFilters(topicFilters)
-	if len(c.Repos) == 0 && len(c.Languages) == 0 && len(c.Topics) == 0 {
+	if len(c.Repos) == 0 && len(c.Languages) == 0 && len(c.Topics) == 0 && c.Owner == "" {
 		return fmt.Errorf("at least one repository is required")
 	}
 	if c.Print && !c.Temp {

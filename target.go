@@ -118,7 +118,7 @@ func resolveCloneTargets(
 	lister repoLister,
 ) ([]CloneTarget, string, error) {
 	repos := cli.Repos
-	if len(repos) == 0 && (len(cli.Languages) > 0 || len(cli.Topics) > 0) {
+	if len(repos) == 0 && (len(cli.Languages) > 0 || len(cli.Topics) > 0 || cli.Owner != "") {
 		repos = []string{keywordAll}
 	}
 
