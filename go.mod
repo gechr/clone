@@ -8,8 +8,9 @@ require (
 	charm.land/lipgloss/v2 v2.0.3
 	github.com/alecthomas/kong v1.15.0
 	github.com/cli/go-gh/v2 v2.13.0
-	github.com/gechr/clib v0.3.10
-	github.com/gechr/clog v0.8.8
+	github.com/gechr/clib v0.4.0
+	github.com/gechr/clog v0.9.0
+	github.com/gechr/x v0.0.1
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -59,7 +60,7 @@ require (
 	github.com/charithe/durationcheck v0.0.11 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834 // indirect
-	github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8 // indirect
+	github.com/charmbracelet/ultraviolet v0.0.0-20260414011438-8c69ec811b1e // indirect
 	github.com/charmbracelet/x/ansi v0.11.7 // indirect
 	github.com/charmbracelet/x/cellbuf v0.0.15 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect

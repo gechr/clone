@@ -15,11 +15,11 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
-	"github.com/gechr/clib/human"
 	"github.com/gechr/clog"
 	"github.com/gechr/clog/fx"
 	"github.com/gechr/clog/fx/bar"
 	"github.com/gechr/clog/fx/bar/widget"
+	"github.com/gechr/x/human"
 )
 
 const minOverallProgressRepos = 5
@@ -223,11 +223,15 @@ func groupFooterLabel(cloners []*Cloner, fetchers []*Fetcher) (string, string) {
 	}
 }
 
-func groupOptions(parallelism, taskCount int, activeLabel, doneLabel string) []clog.GroupOption {
+func groupOptions(
+	parallelism, taskCount int,
+	height float64,
+	activeLabel, doneLabel string,
+) []clog.GroupOption {
 	options := []clog.GroupOption{
 		clog.WithParallelism(parallelism),
 		clog.WithHideDone(),
-		clog.WithMaxHeightPercent(0.5), //nolint:mnd // half the terminal window
+		clog.WithMaxHeightPercent(height),
 	}
 	if showOverallProgress(taskCount) {
 		options = append(options, clog.WithFooter(
@@ -393,7 +397,15 @@ func executeClones(ctx context.Context, cli *CLI, baseDir string, targets []Clon
 	if cli.Quiet {
 		execErr = executeQuiet(ctx, baseDir, cloners, fetchers, cli.Parallelism)
 	} else {
-		execErr = executeWithProgress(ctx, baseDir, cloners, fetchers, cli.Parallelism, cli.Verbose)
+		execErr = executeWithProgress(
+			ctx,
+			baseDir,
+			cloners,
+			fetchers,
+			cli.Parallelism,
+			cli.Height,
+			cli.Verbose,
+		)
 	}
 
 	if execErr != nil {
@@ -524,11 +536,14 @@ func executeWithProgress(
 	cloners []*Cloner,
 	fetchers []*Fetcher,
 	parallelism int,
+	height float64,
 	verbose bool,
 ) error {
 	taskCount := len(cloners) + len(fetchers)
 	activeLabel, doneLabel := groupFooterLabel(cloners, fetchers)
-	group := clog.Group(ctx, groupOptions(parallelism, taskCount, activeLabel, doneLabel)...)
+	group := clog.Group(
+		ctx,
+		groupOptions(parallelism, taskCount, height, activeLabel, doneLabel)...)
 
 	cloneTasks := make([]cloneTask, 0, len(cloners))
 	for _, cloner := range cloners {

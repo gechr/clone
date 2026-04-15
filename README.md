@@ -2,6 +2,8 @@
 
 Clone GitHub repositories in parallel.
 
+![demo](demo/demo.gif)
+
 ## Install
 
 ```shell
@@ -16,25 +18,7 @@ go install github.com/gechr/clone@latest
 
 ## Usage
 
-```text
-clone [options] [<owner>/]<repo>[=<dir>]...
-```
-
-Repositories can be specified as:
-
-| Format           | Example                                       |
-| ---------------- | --------------------------------------------- |
-| `repo`           | `clone repo`                                  |
-| `owner/repo`     | `clone owner/repo`                            |
-| `owner/repo=dir` | `clone owner/repo=local-dir`                  |
-| `owner/repo#N`   | `clone owner/repo#21`                         |
-| GitHub URL       | `clone https://github.com/owner/repo`         |
-| PR URL           | `clone https://github.com/owner/repo/pull/21` |
-| SSH URL          | `clone git@github.com:owner/repo.git`         |
-
-Use `all` to clone every repository for the given owner.
-
-## Options
+![help](demo/help.png)
 
 ### Filters
 
@@ -153,11 +137,11 @@ PR references (`owner/repo#N` or a `/pull/N` URL) clone the repository and check
 
 `--branch` and `--mirror` cannot be combined with PR references.
 
-## jj support
+## [Jujutsu](https://jj-vcs.github.io/jj) support
 
 With `--vcs=jj` (or `CLONE_VCS=jj`), clone performs a two-step process:
 
 1. `git clone` (for progress reporting and compatibility)
-2. `jj git init --colocate` (to initialize jj in the cloned repo)
+2. `jj git init --colocate` (to initialize `jj` in the cloned repo)
 
-`--mirror` is not supported with jj.
+`--mirror` is not supported with `jj`.

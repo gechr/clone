@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gechr/clib/human"
+	"github.com/gechr/x/human"
 )
 
 type gitCallback interface {

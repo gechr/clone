@@ -141,8 +141,8 @@ github.com/charmbracelet/colorprofile v0.4.3 h1:QPa1IWkYI+AOB+fE+mg/5/4HRMZcaXex
 github.com/charmbracelet/colorprofile v0.4.3/go.mod h1:/zT4BhpD5aGFpqQQqw7a+VtHCzu+zrQtt1zhMt9mR4Q=
 github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834 h1:ZR7e0ro+SZZiIZD7msJyA+NjkCNNavuiPBLgerbOziE=
 github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834/go.mod h1:aKC/t2arECF6rNOnaKaVU6y4t4ZeHQzqfxedE/VkVhA=
-github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8 h1:eyFRbAmexyt43hVfeyBofiGSEmJ7krjLOYt/9CF5NKA=
-github.com/charmbracelet/ultraviolet v0.0.0-20260205113103-524a6607adb8/go.mod h1:SQpCTRNBtzJkwku5ye4S3HEuthAlGy2n9VXZnWkEW98=
+github.com/charmbracelet/ultraviolet v0.0.0-20260414011438-8c69ec811b1e h1:O5hZFj55wZQWxMiRtQLa3uLKhZGZGS/j8M3OXinQlrw=
+github.com/charmbracelet/ultraviolet v0.0.0-20260414011438-8c69ec811b1e/go.mod h1:bAAz7dh/FTYfC+oiHavL4mX1tOIBZ0ZwYjSi3qE6ivM=
 github.com/charmbracelet/x/ansi v0.11.7 h1:kzv1kJvjg2S3r9KHo8hDdHFQLEqn4RBCb39dAYC84jI=
 github.com/charmbracelet/x/ansi v0.11.7/go.mod h1:9qGpnAVYz+8ACONkZBUWPtL7lulP9No6p1epAihUZwQ=
 github.com/charmbracelet/x/cellbuf v0.0.15 h1:ur3pZy0o6z/R7EylET877CBxaiE1Sp1GMxoFPAIztPI=
@@ -204,10 +204,12 @@ github.com/fsnotify/fsnotify v1.5.4 h1:jRbGcIw6P2Meqdwuo0H1p6JVLbL5DHKAKlYndzMwV
 github.com/fsnotify/fsnotify v1.5.4/go.mod h1:OVB6XrOHzAwXMpEM7uPOzcehqUV2UqJxmVXmkdnm1bU=
 github.com/fzipp/gocyclo v0.6.0 h1:lsblElZG7d3ALtGMx9fmxeTKZaLLpU8mET09yN4BBLo=
 github.com/fzipp/gocyclo v0.6.0/go.mod h1:rXPyn8fnlpa0R2csP/31uerbiVBugk5whMdlyaLkLoA=
-github.com/gechr/clib v0.3.10 h1:/sXb61ggUXmT54EUjAKPtBAEmxuf7EUPSOsWPM7zjiE=
-github.com/gechr/clib v0.3.10/go.mod h1:Brs9pd5VCbl1NdRgSlZdjlaXup2mEpH3UfjQauZeGnY=
-github.com/gechr/clog v0.8.8 h1:MKIHe+SFzBnAceVoOla8GElSf4mXiduK80HTMfnzHZE=
-github.com/gechr/clog v0.8.8/go.mod h1:ll/2df1FuA3BAZLr71NYy8DcERZ1pIkSrE6e0ZHVxlQ=
+github.com/gechr/clib v0.4.0 h1:Mll1UqM9N/a8EoEce4jC6HjU2cDertavhe6B5Mf7eAo=
+github.com/gechr/clib v0.4.0/go.mod h1:+mrOITRu6kyIKB/nfC1t0+zK7oGOEzETeG2InMdLp9M=
+github.com/gechr/clog v0.9.0 h1:1JO5DtPzG5LeTdSCcZn41NIaHB9RwBp8DJXq7ybOCqk=
+github.com/gechr/clog v0.9.0/go.mod h1:8wNJs1/BURW2q1wKVUDdMCDpYOW7Us11+I/ZICpDkb4=
+github.com/gechr/x v0.0.1 h1:XPVFiuM745CuQLH+Qtvi9ZnZ5Tv8wqIjBQ0oOVOUKS4=
+github.com/gechr/x v0.0.1/go.mod h1:NRd+e3IW8J8TiRu/dw8CcszyPnBz9aD+3r9mAn07QFw=
 github.com/ghostiam/protogetter v0.3.20 h1:oW7OPFit2FxZOpmMRPP9FffU4uUpfeE/rEdE1f+MzD0=
 github.com/ghostiam/protogetter v0.3.20/go.mod h1:FjIu5Yfs6FT391m+Fjp3fbAYJ6rkL/J6ySpZBfnODuI=
 github.com/go-critic/go-critic v0.14.3 h1:5R1qH2iFeo4I/RJU8vTezdqs08Egi4u5p6vOESA0pog=

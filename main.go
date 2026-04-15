@@ -77,6 +77,7 @@ func configureClog() {
 	clog.SetParts(clog.PartSymbol, clog.PartMessage, clog.PartFields)
 	clog.SetLevelAlign(clog.AlignNone)
 	clog.SetSliceSeparator(" ")
+	clog.SetWrap(clog.WrapSoft)
 
 	clog.SetSymbols(clog.LabelMap{
 		clog.LevelInfo:  "·",

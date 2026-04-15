@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"github.com/gechr/clib/ansi"
 	clib "github.com/gechr/clib/cli/kong"
 	"github.com/gechr/clib/help"
 	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
+	"github.com/gechr/x/ansi"
 )
 
 var version = "dev"
@@ -78,6 +78,8 @@ type CLI struct {
 
 	Color   clog.ColorMode `name:"color"   help:"When to use color" clib:"terse='Color mode',group='Miscellaneous/1'" default:"auto" enum:"auto,always,never"`
 	Version bool           `name:"version" help:"Print version"     clib:"terse='Version',group='Miscellaneous/3'"                                            short:"V"`
+
+	Height float64 `name:"height" help:"Maximum height as a percentage of the terminal (0.0-1.0)." hidden:"" default:"0.5"`
 
 	binGit string `kong:"-"`
 	binJJ  string `kong:"-"`
@@ -350,7 +352,7 @@ func flagGroupHasShort(flagGroup help.FlagGroup, short string) bool {
 
 func styledUsageText(th *theme.Theme) help.Text {
 	return help.Text(fmt.Sprintf(
-		"  %s %s %s",
+		"%s %s %s",
 		th.HelpCommand.Render("clone"),
 		th.HelpFlag.Render("[options]"),
 		th.HelpArg.Render("[<owner>/]<repo>[=<dir>]…"),
@@ -359,13 +361,13 @@ func styledUsageText(th *theme.Theme) help.Text {
 
 func styledArgumentsText(th *theme.Theme) help.Text {
 	return help.Text(fmt.Sprintf(
-		`  %s
+		`%s
 
-    Repositories to clone (use %s to clone everything)
+  Repositories to clone (use %s to clone everything)
 
-    If specified, %s takes precedence over the %s flag
+  If specified, %s takes precedence over the %s flag
 
-    Use %s to override the local directory name`,
+  Use %s to override the local directory name`,
 		th.HelpArg.Render("[<owner>/<repo>[=<dir>]]"),
 		th.HelpArg.Render("all"),
 		th.HelpArg.Render("<owner>"),

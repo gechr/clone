@@ -16,6 +16,11 @@ fmt:
 
 DIST_DIR ?= dist
 
+.PHONY: demo
+demo:
+	@vhs demo/demo.tape > /dev/null
+	@vhs demo/help.tape > /dev/null
+
 .PHONY: build
 build:
 	@$(GO) build -ldflags "$(GO_LDFLAGS)" -o $(DIST_DIR)/clone .
