@@ -123,11 +123,24 @@ func resolveCloneTargets(
 	}
 
 	defaultOwner := strings.TrimSpace(cli.Owner)
+	if strings.EqualFold(defaultOwner, ownerAtMe) {
+		resolved, err := ghOwnerLookup()
+		if err != nil {
+			return nil, "", err
+		}
+		defaultOwner = resolved
+	}
 	requests := make([]repoRequest, 0, len(repos))
 	for _, arg := range repos {
 		req, err := parseRepoRequest(arg, defaultOwner)
 		if err != nil {
 			return nil, "", err
+		}
+		if strings.EqualFold(req.Owner, ownerAtMe) {
+			req.Owner, err = ghOwnerLookup()
+			if err != nil {
+				return nil, "", err
+			}
 		}
 		if req.Owner == "" {
 			if defaultOwner == "" {

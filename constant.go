@@ -1,8 +1,9 @@
 package main
 
 const (
-	minRepoSegments = 2   // owner/repo
-	pathSep         = "/" // URL path separator
+	minRepoSegments = 2     // owner/repo
+	pathSep         = "/"   // URL path separator
+	ownerAtMe       = "@me" // GitHub alias for the authenticated user
 
 	hostAzureDevOps = "dev.azure.com"
 	hostGitHub      = "github.com"

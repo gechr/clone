@@ -413,6 +413,63 @@ func TestResolveCloneTargetsTopicFiltersOR(t *testing.T) {
 	require.Len(t, targets, 2)
 }
 
+func withFakeOwnerLookup(t *testing.T, login string) {
+	t.Helper()
+	orig := ghOwnerLookup
+	ghOwnerLookup = func() (string, error) { return login, nil }
+	t.Cleanup(func() { ghOwnerLookup = orig })
+}
+
+func TestResolveCloneTargetsAtMeOwnerFlag(t *testing.T) {
+	withFakeOwnerLookup(t, testDefaultOwner)
+
+	cli := &CLI{
+		Owner:      "@me",
+		Repos:      []string{"alpha"},
+		Method:     methodSSH,
+		VCS:        vcsGit,
+		Visibility: "all",
+	}
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.NoError(t, err)
+	require.Len(t, targets, 1)
+	require.Equal(t, testDefaultOwner+"/alpha", targets[0].Slug)
+}
+
+func TestResolveCloneTargetsAtMeInRepoArg(t *testing.T) {
+	withFakeOwnerLookup(t, testDefaultOwner)
+
+	cli := &CLI{
+		Repos:      []string{"@me/alpha"},
+		Method:     methodSSH,
+		VCS:        vcsGit,
+		Visibility: "all",
+	}
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.NoError(t, err)
+	require.Len(t, targets, 1)
+	require.Equal(t, testDefaultOwner+"/alpha", targets[0].Slug)
+}
+
+func TestResolveCloneTargetsAtMeCaseInsensitive(t *testing.T) {
+	withFakeOwnerLookup(t, testDefaultOwner)
+
+	cli := &CLI{
+		Owner:      "@Me",
+		Repos:      []string{"alpha"},
+		Method:     methodSSH,
+		VCS:        vcsGit,
+		Visibility: "all",
+	}
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.NoError(t, err)
+	require.Len(t, targets, 1)
+	require.Equal(t, testDefaultOwner+"/alpha", targets[0].Slug)
+}
+
 func TestFormatTopicFilters(t *testing.T) {
 	t.Parallel()
 
