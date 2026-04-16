@@ -8,7 +8,7 @@ import (
 )
 
 func TestResolveDefaultOwnerUsesEnv(t *testing.T) {
-	t.Setenv(envKeyOwner, "oss-owner")
+	t.Setenv("CLONE_OWNER", "oss-owner")
 
 	orig := ghOwnerLookup
 	ghOwnerLookup = func() (string, error) {
@@ -25,7 +25,7 @@ func TestResolveDefaultOwnerUsesEnv(t *testing.T) {
 }
 
 func TestResolveDefaultOwnerFallsBackToGH(t *testing.T) {
-	t.Setenv(envKeyOwner, "")
+	t.Setenv("CLONE_OWNER", "")
 
 	orig := ghOwnerLookup
 	ghOwnerLookup = func() (string, error) {
@@ -41,7 +41,7 @@ func TestResolveDefaultOwnerFallsBackToGH(t *testing.T) {
 }
 
 func TestResolveDefaultOwnerPropagatesGHError(t *testing.T) {
-	t.Setenv(envKeyOwner, "")
+	t.Setenv("CLONE_OWNER", "")
 
 	orig := ghOwnerLookup
 	ghOwnerLookup = func() (string, error) {

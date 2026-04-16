@@ -27,12 +27,6 @@ const (
 	vcsGit             = nameGit
 	vcsJJ              = nameJJ
 
-	envKeyBinGit      = "CLONE_BIN_GIT"
-	envKeyBinJJ       = "CLONE_BIN_JJ"
-	envKeyGitHubToken = "CLONE_GITHUB_TOKEN" //nolint:gosec // env var name, not a credential
-	envKeyOwner       = "CLONE_OWNER"
-	envKeyTmpDir      = "CLONE_TMP_DIR"
-
 	mirrorDocsURL = "https://docs.github.com/en/repositories/creating-and-managing-repositories/duplicating-a-repository"
 
 	prStateOpen = "OPEN"

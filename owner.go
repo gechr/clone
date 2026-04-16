@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/cli/go-gh/v2/pkg/api"
@@ -11,7 +10,11 @@ import (
 var ghOwnerLookup = currentGHOwner
 
 func configuredOwner() string {
-	return strings.TrimSpace(os.Getenv(envKeyOwner))
+	cfg, err := loadEnvConfig()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(cfg.Owner)
 }
 
 func resolveDefaultOwner() (string, error) {
@@ -33,8 +36,7 @@ func currentGHOwner() (string, error) {
 	rest, err := api.NewRESTClient(api.ClientOptions{})
 	if err != nil {
 		return "", fmt.Errorf(
-			"owner not specified; set %s, pass --owner, or install/authenticate gh",
-			envKeyOwner,
+			"owner not specified; set CLONE_OWNER, pass --owner, or install/authenticate GitHub CLI (https://cli.github.com)",
 		)
 	}
 
@@ -43,8 +45,7 @@ func currentGHOwner() (string, error) {
 	}
 	if err := rest.Get("user", &user); err != nil {
 		return "", fmt.Errorf(
-			"owner not specified; set %s, pass --owner, or authenticate gh: %w",
-			envKeyOwner,
+			"owner not specified; set CLONE_OWNER, pass --owner, or authenticate gh: %w",
 			err,
 		)
 	}

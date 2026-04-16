@@ -122,7 +122,12 @@ func resolveCloneTargets(
 		repos = []string{keywordAll}
 	}
 
-	defaultOwner := strings.TrimSpace(cli.Owner)
+	envCfg, cfgErr := loadEnvConfig()
+	if cfgErr != nil {
+		return nil, "", cfgErr
+	}
+
+	defaultOwner := resolveOwnerAlias(strings.TrimSpace(cli.Owner), envCfg.Aliases)
 	if strings.EqualFold(defaultOwner, ownerAtMe) {
 		resolved, err := ghOwnerLookup()
 		if err != nil {
@@ -130,12 +135,14 @@ func resolveCloneTargets(
 		}
 		defaultOwner = resolved
 	}
+
 	requests := make([]repoRequest, 0, len(repos))
 	for _, arg := range repos {
 		req, err := parseRepoRequest(arg, defaultOwner)
 		if err != nil {
 			return nil, "", err
 		}
+		req.Owner = resolveOwnerAlias(req.Owner, envCfg.Aliases)
 		if strings.EqualFold(req.Owner, ownerAtMe) {
 			req.Owner, err = ghOwnerLookup()
 			if err != nil {
@@ -168,7 +175,7 @@ func resolveCloneTargets(
 		return nil, "", fmt.Errorf("--mirror is not supported with PR references")
 	}
 
-	baseDir, err := resolveBaseDirectory(cli)
+	baseDir, err := resolveBaseDirectory(cli, envCfg.TempDir)
 	if err != nil {
 		return nil, "", err
 	}
@@ -341,10 +348,10 @@ func resolveCloneTargets(
 	return targets, baseDir, nil
 }
 
-func resolveBaseDirectory(cli *CLI) (string, error) {
+func resolveBaseDirectory(cli *CLI, tempDir string) (string, error) {
 	switch {
 	case cli.Temp:
-		return os.MkdirTemp(os.Getenv(envKeyTmpDir), "clone-*")
+		return os.MkdirTemp(tempDir, "clone-*")
 	case cli.Directory != "":
 		return filepath.Clean(cli.Directory), nil
 	default:

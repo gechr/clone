@@ -147,7 +147,12 @@ func run() error {
 	clog.SetColorMode(cli.Color)
 	clog.SetVerbose(cli.Debug)
 
-	binGit, binJJ, depsErr := checkDeps(cli.VCS)
+	envCfg, envErr := loadEnvConfig()
+	if envErr != nil {
+		return envErr
+	}
+
+	binGit, binJJ, depsErr := checkDeps(envCfg, cli.VCS)
 	if depsErr != nil {
 		clog.Error().Msg(depsErr.Error())
 		return errSilent
@@ -231,14 +236,14 @@ func (f lazyRepoLister) ResolvePR(owner, repo string, number int) (prInfo, error
 	return lister.ResolvePR(owner, repo, number)
 }
 
-func checkDeps(vcs string) (string, string, error) {
-	binGit, err := resolveBinPath(envKeyBinGit, nameGit)
+func checkDeps(cfg envConfig, vcs string) (string, string, error) {
+	binGit, err := resolveBinPath(cfg.BinGit, "CLONE_BIN_GIT", nameGit)
 	if err != nil {
 		return "", "", err
 	}
 	var binJJ string
 	if vcs == vcsJJ {
-		binJJ, err = resolveBinPath(envKeyBinJJ, nameJJ)
+		binJJ, err = resolveBinPath(cfg.BinJJ, "CLONE_BIN_JJ", nameJJ)
 		if err != nil {
 			return "", "", err
 		}
@@ -246,11 +251,11 @@ func checkDeps(vcs string) (string, string, error) {
 	return binGit, binJJ, nil
 }
 
-func resolveBinPath(envKey, name string) (string, error) {
-	if v := os.Getenv(envKey); v != "" {
-		p, err := exec.LookPath(v)
+func resolveBinPath(override, envVar, name string) (string, error) {
+	if override != "" {
+		p, err := exec.LookPath(override)
 		if err != nil {
-			return "", fmt.Errorf("%s=%q not found: %w", envKey, v, err)
+			return "", fmt.Errorf("%s=%q not found: %w", envVar, override, err)
 		}
 		return p, nil
 	}
@@ -261,10 +266,12 @@ func resolveBinPath(envKey, name string) (string, error) {
 	return p, nil
 }
 
-var tokenEnvKeys = []string{envKeyGitHubToken, "GITHUB_TOKEN", "GH_TOKEN"}
-
 func githubToken() string {
-	for _, key := range tokenEnvKeys {
+	cfg, err := loadEnvConfig()
+	if err == nil && cfg.GitHubToken != "" {
+		return cfg.GitHubToken
+	}
+	for _, key := range []string{"GITHUB_TOKEN", "GH_TOKEN"} {
 		if token := os.Getenv(key); token != "" {
 			return token
 		}
@@ -279,8 +286,7 @@ func ensureGHAuth() error {
 	token := githubToken()
 	if token == "" {
 		return fmt.Errorf(
-			"not authenticated with GitHub (set %s or run 'gh auth login')",
-			tokenEnvKeys[0],
+			"not authenticated with GitHub (set CLONE_GITHUB_TOKEN or run 'gh auth login')",
 		)
 	}
 	_ = os.Setenv("GH_TOKEN", token)
