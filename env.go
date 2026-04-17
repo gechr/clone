@@ -1,10 +1,13 @@
 package main
 
 import (
+	"os"
 	"strings"
 
 	"github.com/caarlos0/env/v11"
 )
+
+const envCloneVCS = "CLONE_VCS"
 
 type envConfig struct {
 	BinGit      string            `env:"BIN_GIT"`
@@ -26,6 +29,10 @@ func loadEnvConfig() (envConfig, error) {
 	}
 	cfg.Aliases = normalized
 	return cfg, nil
+}
+
+func envLower(key string) string {
+	return strings.ToLower(strings.TrimSpace(os.Getenv(key)))
 }
 
 func resolveOwnerAlias(owner string, aliases map[string]string) string {

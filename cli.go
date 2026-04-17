@@ -56,7 +56,7 @@ type CLI struct {
 	Quick       bool   "name:\"quick\"     help:\"Shallow single-branch clone (alias for `--depth=1 --single-branch`)\" short:\"Q\"                                         clib:\"terse='Quick clone',group='Options/1'\"                 xor:\"shallow\""
 	Method      string `name:"method"      help:"Clone method"                                          short:"m"                    placeholder:"<method>" clib:"terse='Clone method',enum='ssh,https',group='Options/1'"                 default:"ssh" enum:"ssh,https,http" env:"CLONE_METHOD"`
 	Mirror      bool   `name:"mirror"      help:"Create a mirror clone"                                                                                     clib:"terse='Mirror clone',group='Options/1'"                  xor:"fetch"`
-	VCS         string `name:"vcs"         help:"Version control system"                                                             placeholder:"<vcs>"    clib:"terse='VCS',group='Options/1'"                           xor:"vcs"       default:"git" enum:"git,jj"         env:"CLONE_VCS"`
+	VCS         string `name:"vcs"         help:"Version control system"                                                             placeholder:"<vcs>"    clib:"terse='VCS',group='Options/1'"`
 	JJ          bool   "name:\"jj\"        help:\"Clone with `jj` (alias for `--vcs=jj`)\"                                                                                  clib:\"terse='Jujutsu',group='Options/1'\"                                                                                        xor:\"vcs\""
 	Git         bool   "name:\"git\"       help:\"Clone with `git` (alias for `--vcs=git`)\"                                                                                clib:\"terse='Git',group='Options/1'\"                                                                                            xor:\"vcs\""
 	Directory   string `name:"directory"   help:"Clone into a specific directory"                       short:"d" aliases:"dir"      placeholder:"<path>"   clib:"terse='Directory',group='Options/2'"                     xor:"location"                                                         type:"path"`
@@ -83,7 +83,7 @@ type CLI struct {
 }
 
 func vcsDefault() string {
-	if v := strings.ToLower(strings.TrimSpace(os.Getenv("CLONE_VCS"))); v != "" {
+	if v := envLower(envCloneVCS); v != "" {
 		return v
 	}
 	return vcsGit
@@ -93,10 +93,17 @@ func (c *CLI) Normalize() {
 	if c.Method == "http" {
 		c.Method = methodHTTPS
 	}
-	if c.Git {
+	switch {
+	case c.Git:
 		c.VCS = vcsGit
-	} else if c.JJ {
+	case c.JJ:
 		c.VCS = vcsJJ
+	case c.VCS == "":
+		if v := envLower(envCloneVCS); v != "" {
+			c.VCS = v
+		} else {
+			c.VCS = vcsGit
+		}
 	}
 	c.Languages = uniqueFold(c.Languages)
 	if c.Quick && c.Depth == 0 {
@@ -111,7 +118,17 @@ func (c *CLI) Validate() error {
 	if c.Version {
 		return nil
 	}
+	if c.VCS != "" && (c.Git || c.JJ) {
+		flag := nameGit
+		if c.JJ {
+			flag = nameJJ
+		}
+		return fmt.Errorf("--%s and --vcs can't be used together", flag)
+	}
 	c.Normalize()
+	if c.VCS != vcsGit && c.VCS != vcsJJ {
+		return fmt.Errorf("--vcs must be one of: git, jj (got %q)", c.VCS)
+	}
 	languageGroups, err := parseFilters("language", c.Languages)
 	if err != nil {
 		return err
