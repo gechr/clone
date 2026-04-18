@@ -149,8 +149,8 @@ func splitPath(path string) []string {
 }
 
 // forgeResult builds a repoRequest from the extracted components.
-func forgeResult(scheme, host, owner, name string, gitSuffix bool) (repoRequest, bool) {
-	name = strings.TrimSuffix(name, ".git")
+func forgeResult(scheme, host, owner, name string, appendDotGit bool) (repoRequest, bool) {
+	name = strings.TrimSuffix(name, dotGit)
 	if owner == "" || name == "" {
 		return repoRequest{}, false
 	}
@@ -159,7 +159,7 @@ func forgeResult(scheme, host, owner, name string, gitSuffix bool) (repoRequest,
 		Host:          host,
 		Owner:         owner,
 		Name:          name,
-		Source:        forgeSource(scheme, host, owner+pathSep+name, gitSuffix),
+		Source:        forgeSource(scheme, host, owner+pathSep+name, appendDotGit),
 	}, true
 }
 
@@ -288,10 +288,10 @@ func parseGeneric(path, scheme, host string) (repoRequest, bool) {
 }
 
 // forgeSource constructs a clone URL for the given scheme, host, and path.
-func forgeSource(scheme, host, repoPath string, gitSuffix bool) string {
+func forgeSource(scheme, host, repoPath string, appendDotGit bool) string {
 	suffix := ""
-	if gitSuffix {
-		suffix = ".git"
+	if appendDotGit {
+		suffix = dotGit
 	}
 	switch scheme {
 	case schemeSSH:

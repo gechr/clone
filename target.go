@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -43,6 +44,83 @@ type CloneTarget struct {
 	Slug          string
 	Source        string
 	VCS           string
+}
+
+// expandMultiPR rewrites `<repo>#N,M,P-Q` tokens into separate entries per
+// PR number. Single-PR references are passed through unchanged; same-repo
+// dest collisions across entries get resolved later in resolveCloneTargets.
+func expandMultiPR(repos []string) ([]string, error) {
+	out := make([]string, 0, len(repos))
+	for _, arg := range repos {
+		repoText, dir, hasDir := strings.Cut(arg, "=")
+		before, prPart, hasPR := strings.Cut(repoText, "#")
+		if !hasPR || !isMultiPR(prPart) {
+			out = append(out, arg)
+			continue
+		}
+		if hasDir {
+			return nil, fmt.Errorf("%q: =%s cannot be combined with multi-PR reference", arg, dir)
+		}
+		nums, err := parsePRList(prPart)
+		if err != nil {
+			return nil, fmt.Errorf("%q: %w", arg, err)
+		}
+		for _, num := range nums {
+			out = append(out, fmt.Sprintf("%s#%d", before, num))
+		}
+	}
+	return out, nil
+}
+
+// isMultiPR returns true when prPart uses `,` or `-` as a list/range
+// separator between numbers. A leading `-` (e.g. `#-1`) is *not* multi-PR —
+// it falls through to normal parsing which rejects negative numbers.
+func isMultiPR(prPart string) bool {
+	if prPart == "" || !isDigit(rune(prPart[0])) {
+		return false
+	}
+	return strings.ContainsAny(prPart, ",-")
+}
+
+// parsePRList parses a PR list like "1,2,5-7" into []int{1, 2, 5, 6, 7}.
+// Ranges are inclusive on both ends; negative or zero numbers are rejected.
+func parsePRList(spec string) ([]int, error) {
+	var nums []int
+	seen := make(map[int]struct{})
+	for segment := range strings.SplitSeq(spec, ",") {
+		segment = strings.TrimSpace(segment)
+		if segment == "" {
+			return nil, fmt.Errorf("empty PR number in %q", spec)
+		}
+		lo, hi, ok := parsePRRange(segment)
+		if !ok {
+			return nil, fmt.Errorf("invalid PR reference %q", segment)
+		}
+		for n := lo; n <= hi; n++ {
+			if _, dup := seen[n]; dup {
+				continue
+			}
+			seen[n] = struct{}{}
+			nums = append(nums, n)
+		}
+	}
+	return nums, nil
+}
+
+func parsePRRange(segment string) (int, int, bool) {
+	if before, after, hasDash := strings.Cut(segment, "-"); hasDash {
+		lo, errLo := strconv.Atoi(before)
+		hi, errHi := strconv.Atoi(after)
+		if errLo != nil || errHi != nil || lo <= 0 || hi < lo {
+			return 0, 0, false
+		}
+		return lo, hi, true
+	}
+	n, err := strconv.Atoi(segment)
+	if err != nil || n <= 0 {
+		return 0, 0, false
+	}
+	return n, n, true
 }
 
 func parseRepoRequest(input, defaultOwner string) (repoRequest, error) {
@@ -97,7 +175,7 @@ func parseRepoRequest(input, defaultOwner string) (repoRequest, error) {
 	return repoRequest{
 		ExplicitOwner: explicitOwner,
 		Owner:         owner,
-		Name:          strings.TrimSuffix(name, ".git"),
+		Name:          strings.TrimSuffix(name, dotGit),
 		Dir:           dir,
 		PullRequest:   pr,
 	}, nil
@@ -217,6 +295,17 @@ func resolveViewerTargets(
 	return targets, baseDir, nil
 }
 
+// addPRSuffix sets Dir=<name>#<N> on any PR request without an explicit
+// directory, so PR clones land alongside plain clones without colliding.
+func addPRSuffix(requests []repoRequest) {
+	for i, req := range requests {
+		if req.PullRequest == "" || req.Dir != "" {
+			continue
+		}
+		requests[i].Dir = req.Name + "#" + req.PullRequest
+	}
+}
+
 // buildTargetsFromRequests converts fully-resolved repoRequests into CloneTargets.
 // Used by the viewer path, which has no PR references to resolve.
 func buildTargetsFromRequests(
@@ -229,7 +318,7 @@ func buildTargetsFromRequests(
 		destName := req.Dir
 		if destName == "" {
 			if cli.Mirror {
-				destName = req.Name + ".git"
+				destName = req.Name + dotGit
 			} else {
 				destName = req.Name
 			}
@@ -296,7 +385,10 @@ func resolveCloneTargets(
 		return resolveViewerTargets(ctx, cli, lister)
 	}
 
-	repos := cli.Repos
+	repos, err := expandMultiPR(cli.Repos)
+	if err != nil {
+		return nil, "", err
+	}
 	if len(repos) == 0 &&
 		(len(cli.Languages) > 0 || len(cli.Topics) > 0 || cli.StarsFilter.present() || cli.Owner != "") {
 		repos = []string{keywordAll}
@@ -313,11 +405,12 @@ func resolveCloneTargets(
 	nonGitHub := cli.forge.Host != hostGitHub
 
 	defaultOwner := resolveOwnerAlias(strings.TrimSpace(cli.Owner), envCfg.Aliases)
-	if strings.EqualFold(defaultOwner, ownerAtMe) {
+	if strings.EqualFold(defaultOwner, atMe) {
 		if nonGitHub {
 			return nil, "", fmt.Errorf("@me is only currently supported for GitHub hosts")
 		}
-		resolved, err := ghOwnerLookup()
+		var resolved string
+		resolved, err = ghOwnerLookup()
 		if err != nil {
 			return nil, "", err
 		}
@@ -326,12 +419,13 @@ func resolveCloneTargets(
 
 	requests := make([]repoRequest, 0, len(repos))
 	for _, arg := range repos {
-		req, err := parseRepoRequest(arg, defaultOwner)
+		var req repoRequest
+		req, err = parseRepoRequest(arg, defaultOwner)
 		if err != nil {
 			return nil, "", err
 		}
 		req.Owner = resolveOwnerAlias(req.Owner, envCfg.Aliases)
-		if strings.EqualFold(req.Owner, ownerAtMe) {
+		if strings.EqualFold(req.Owner, atMe) {
 			if nonGitHub {
 				return nil, "", fmt.Errorf(
 					"@me is only currently supported for GitHub hosts",
@@ -453,6 +547,8 @@ func resolveCloneTargets(
 		return nil, baseDir, &userError{msg: "Filter returned no repositories"}
 	}
 
+	addPRSuffix(selected)
+
 	type prResolution struct {
 		headRef   string
 		useBranch bool
@@ -464,8 +560,10 @@ func resolveCloneTargets(
 			prCount++
 		}
 	}
+	kept := selected[:0]
 	for _, req := range selected {
 		if req.PullRequest == "" {
+			kept = append(kept, req)
 			continue
 		}
 		number, numErr := strconv.Atoi(req.PullRequest)
@@ -479,12 +577,26 @@ func resolveCloneTargets(
 		}
 		info, resolveErr := lister.ResolvePR(req.Owner, req.Name, number)
 		if resolveErr != nil {
-			return nil, baseDir, resolveErr
+			reason := resolveErr.Error()
+			if inner := errors.Unwrap(resolveErr); inner != nil {
+				reason = inner.Error()
+			}
+			clog.Warn().
+				Str("repository", req.Owner+pathSep+req.Name).
+				Str("pr", req.PullRequest).
+				Str("reason", reason).
+				Msg("Skipping")
+			continue
 		}
 		key := prKey(req)
 		useBranch := len(selected) == 1 && prCount == 1 && !info.IsCrossRepository &&
 			info.State == prStateOpen
 		prMap[key] = prResolution{headRef: info.HeadRefName, useBranch: useBranch}
+		kept = append(kept, req)
+	}
+	selected = kept
+	if len(selected) == 0 {
+		return nil, baseDir, &userError{msg: "No pull requests resolved"}
 	}
 
 	targets := make([]CloneTarget, 0, len(selected))
@@ -492,7 +604,7 @@ func resolveCloneTargets(
 		destName := req.Dir
 		if destName == "" {
 			if cli.Mirror {
-				destName = req.Name + ".git"
+				destName = req.Name + dotGit
 			} else {
 				destName = req.Name
 			}
@@ -791,9 +903,7 @@ func isValidRepoName(name string) bool {
 	}
 	for _, r := range name {
 		switch {
-		case r >= 'a' && r <= 'z':
-		case r >= 'A' && r <= 'Z':
-		case r >= '0' && r <= '9':
+		case isLower(r), isUpper(r), isDigit(r):
 		case r == '-' || r == '_' || r == '.':
 		default:
 			return false

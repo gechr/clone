@@ -1,9 +1,10 @@
 package main
 
 const (
-	minRepoSegments = 2     // owner/repo
-	pathSep         = "/"   // URL path separator
-	ownerAtMe       = "@me" // GitHub alias for the authenticated user
+	minRepoSegments = 2   // owner/repo
+	pathSep         = "/" // URL path separator
+	dotGit          = ".git"
+	atMe            = "@me" // GitHub alias for the authenticated user
 
 	keyOwner  = "owner"
 	keySource = "source"

@@ -111,6 +111,10 @@ func parseRangeFilter(expr string) (rangeFilter, error) {
 	}
 }
 
+func isDigit(r rune) bool { return r >= '0' && r <= '9' }
+func isLower(r rune) bool { return r >= 'a' && r <= 'z' }
+func isUpper(r rune) bool { return r >= 'A' && r <= 'Z' }
+
 func compactLines(text string) string {
 	lines := strings.Split(text, "\n")
 	parts := make([]string, 0, len(lines))
@@ -137,7 +141,7 @@ func detectVCS(dest, fallback string) string {
 	if ok, _ := pathExists(filepath.Join(dest, ".jj")); ok {
 		return vcsJJ
 	}
-	if ok, _ := pathExists(filepath.Join(dest, ".git")); ok {
+	if ok, _ := pathExists(filepath.Join(dest, dotGit)); ok {
 		return vcsGit
 	}
 	return fallback
