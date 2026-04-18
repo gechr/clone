@@ -24,6 +24,17 @@ import (
 
 const minOverallProgressRepos = 5
 
+// dryRunColor is set by main.go once the color mode is resolved.
+var dryRunColor = false
+
+func dryRunSep() string {
+	if dryRunColor {
+		// \x1b[2m = faint on, \x1b[22m = faint off (does not reset color)
+		return " \x1b[2m&&\x1b[22m "
+	}
+	return " && "
+}
+
 type cloneTask struct {
 	cloner *Cloner
 	result *fx.TaskResult
@@ -70,7 +81,6 @@ type Cloner struct {
 	CustomDest   bool
 	Depth        int
 	Dest         string
-	Done         bool
 	Label        string
 	Mirror       bool
 	PRHeadRef    string
@@ -81,7 +91,8 @@ type Cloner struct {
 	Source       string
 	VCS          string
 
-	Err error
+	Done bool
+	Err  error
 }
 
 func NewCloner(target CloneTarget) *Cloner {
@@ -105,11 +116,12 @@ func NewCloner(target CloneTarget) *Cloner {
 }
 
 type cloneCallback struct {
-	mu            sync.Mutex
-	update        *clog.Update
-	progress      cloneProgress
+	mu sync.Mutex
+
 	lastProgress  int
+	progress      cloneProgress
 	transferStats *atomic.Pointer[transferStats] // shared with widget; nil when not verbose
+	update        *clog.Update
 }
 
 func (c *cloneCallback) send() {
@@ -382,7 +394,7 @@ func executeClones(ctx context.Context, cli *CLI, baseDir string, targets []Clon
 	cloners, fetchers, err := prepareCloners(
 		targets,
 		!cli.Quiet,
-		!cli.Dry,
+		!cli.DryRun,
 		cli.Force,
 		cli.Fetch || cli.Pull,
 		cli.Pull,
@@ -394,7 +406,7 @@ func executeClones(ctx context.Context, cli *CLI, baseDir string, targets []Clon
 		return nil
 	}
 
-	if cli.Dry {
+	if cli.DryRun {
 		for _, cloner := range cloners {
 			clog.Dry().Msg(cloner.DryRunCommand())
 		}
@@ -831,7 +843,7 @@ func (c *Cloner) DryRunCommand() string {
 		}
 	}
 
-	return strings.Join(lines, " && ")
+	return strings.Join(lines, dryRunSep())
 }
 
 func (f *Fetcher) Run(
@@ -946,7 +958,7 @@ func (f *Fetcher) DryRunCommand() string {
 	if f.VCS == vcsJJ {
 		lines = append(lines, formatCommand(f.BinJJ, f.jjImportArgs(), true))
 	}
-	return strings.Join(lines, " && ")
+	return strings.Join(lines, dryRunSep())
 }
 
 func cleanupIncompleteClones(cloners []*Cloner) {

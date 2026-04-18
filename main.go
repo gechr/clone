@@ -18,6 +18,7 @@ import (
 	"github.com/gechr/clog/fx/spinner"
 	"github.com/gechr/clog/level"
 	"github.com/gechr/clog/style"
+	"github.com/gechr/x/terminal"
 )
 
 // LevelSuccess is a custom log level for successful completion messages.
@@ -37,8 +38,8 @@ var (
 
 // userError is a user-facing error that should be displayed as-is.
 type userError struct {
-	msg      string
 	exitCode int
+	msg      string
 }
 
 func (e *userError) Error() string { return e.msg }
@@ -85,6 +86,7 @@ func configureClog() {
 		clog.LevelWarn:  "›",
 		clog.LevelError: "✘",
 		clog.LevelFatal: "✘",
+		clog.LevelDry:   "$",
 	})
 
 	green := new(lipgloss.NewStyle().Foreground(lipgloss.Color("2")))
@@ -105,6 +107,7 @@ func configureClog() {
 			clog.LevelWarn:  new(lipgloss.NewStyle().Foreground(lipgloss.Color("3"))),
 			clog.LevelError: new(lipgloss.NewStyle().Foreground(lipgloss.Color("1"))),
 			clog.LevelFatal: new(lipgloss.NewStyle().Foreground(lipgloss.Color("1"))),
+			clog.LevelDry:   new(lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)),
 		},
 	})
 	clog.SetSpinnerStyle(spinner.DotsBounce)
@@ -148,6 +151,7 @@ func run() error {
 
 	clog.SetColorMode(cli.Color)
 	clog.SetVerbose(cli.Debug)
+	dryRunColor = resolveColorEnabled(cli.Color)
 
 	envCfg, envErr := loadEnvConfig()
 	if envErr != nil {
@@ -233,12 +237,35 @@ func (f lazyRepoLister) ListOwnerRepos(owner string, opts repoListOptions) ([]re
 	return lister.ListOwnerRepos(owner, opts)
 }
 
+func (f lazyRepoLister) ListViewerRepos(
+	source viewerSource,
+	opts repoListOptions,
+) ([]repoInfo, error) {
+	lister, err := f()
+	if err != nil {
+		return nil, err
+	}
+	return lister.ListViewerRepos(source, opts)
+}
+
 func (f lazyRepoLister) ResolvePR(owner, repo string, number int) (prInfo, error) {
 	lister, err := f()
 	if err != nil {
 		return prInfo{}, err
 	}
 	return lister.ResolvePR(owner, repo, number)
+}
+
+func resolveColorEnabled(mode clog.ColorMode) bool {
+	switch mode {
+	case clog.ColorAlways:
+		return true
+	case clog.ColorNever:
+		return false
+	case clog.ColorAuto:
+		return terminal.Is(os.Stderr)
+	}
+	return false
 }
 
 func checkDeps(cfg envConfig, needJJ bool) (string, string, error) {

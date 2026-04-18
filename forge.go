@@ -9,9 +9,9 @@ import (
 
 // forgeConfig describes how to construct clone URLs for a given forge.
 type forgeConfig struct {
-	Name      string
-	Host      string
 	GitSuffix bool
+	Host      string
+	Name      string
 }
 
 var forgeRegistry = map[string]forgeConfig{

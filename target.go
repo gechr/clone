@@ -20,8 +20,8 @@ type repoRequest struct {
 	Host          string
 	Name          string
 	Owner         string
-	Source        string
 	PullRequest   string
+	Source        string
 }
 
 type CloneTarget struct {
@@ -122,13 +122,183 @@ func ensureDefaultOwner(defaultOwner string, nonGitHub bool) (string, error) {
 	return resolveDefaultOwner()
 }
 
+func resolveViewerTargets(
+	ctx context.Context,
+	cli *CLI,
+	lister repoLister,
+) ([]CloneTarget, string, error) {
+	if len(cli.Repos) > 0 {
+		return nil, "", fmt.Errorf(
+			"--starred/--watching cannot be combined with explicit repositories",
+		)
+	}
+
+	var sources []viewerSource
+	if cli.Starred {
+		sources = append(sources, viewerStarred)
+	}
+	if cli.Watching {
+		sources = append(sources, viewerWatching)
+	}
+
+	envCfg, cfgErr := loadEnvConfig()
+	if cfgErr != nil {
+		return nil, "", cfgErr
+	}
+
+	baseDir, err := resolveBaseDirectory(cli, envCfg.TempDir)
+	if err != nil {
+		return nil, "", err
+	}
+
+	if cli.forge.Host == "" {
+		cli.forge = forgeRegistry[forgeGitHub]
+	}
+
+	var viewerRepos []repoInfo
+	s := viewerSpinner(cli)
+	listErr := s.Wait(ctx, func(_ context.Context) error {
+		seen := make(map[string]struct{})
+		for _, source := range sources {
+			fetched, fetchErr := lister.ListViewerRepos(source, repoListOptions{
+				IncludeArchived: cli.Archived,
+				IncludeForked:   cli.Forked,
+				Languages:       cli.Languages,
+				Stars:           cli.StarsFilter,
+				TopicFilters:    cli.TopicFilters,
+				Visibility:      cli.Visibility,
+			})
+			if fetchErr != nil {
+				return fetchErr
+			}
+			for _, repo := range fetched {
+				key := repo.Owner + "/" + repo.Name
+				if _, ok := seen[key]; ok {
+					continue
+				}
+				seen[key] = struct{}{}
+				viewerRepos = append(viewerRepos, repo)
+			}
+		}
+		if len(viewerRepos) == 0 {
+			return &userError{msg: "No repositories matched"}
+		}
+		return nil
+	}).
+		OnSuccessLevel(LevelSuccess).
+		Msg("Fetched")
+	if listErr != nil {
+		return nil, baseDir, errSilent
+	}
+
+	requests := make([]repoRequest, 0, len(viewerRepos))
+	for _, repo := range viewerRepos {
+		requests = append(requests, repoRequest{
+			ExplicitOwner: true,
+			Host:          cli.forge.Host,
+			Owner:         repo.Owner,
+			Name:          repo.Name,
+		})
+	}
+
+	requests, err = applyNameFilters(requests, cli)
+	if err != nil {
+		return nil, baseDir, err
+	}
+	requests = dedupeRequests(requests)
+	if len(requests) == 0 {
+		return nil, baseDir, &userError{msg: "Filter returned no repositories"}
+	}
+
+	targets, err := buildTargetsFromRequests(cli, baseDir, requests)
+	if err != nil {
+		return nil, baseDir, err
+	}
+	return targets, baseDir, nil
+}
+
+// buildTargetsFromRequests converts fully-resolved repoRequests into CloneTargets.
+// Used by the viewer path, which has no PR references to resolve.
+func buildTargetsFromRequests(
+	cli *CLI,
+	baseDir string,
+	requests []repoRequest,
+) ([]CloneTarget, error) {
+	targets := make([]CloneTarget, 0, len(requests))
+	for _, req := range requests {
+		destName := req.Dir
+		if destName == "" {
+			if cli.Mirror {
+				destName = req.Name + ".git"
+			} else {
+				destName = req.Name
+			}
+		}
+		dest := destName
+		if baseDir != "" {
+			dest = filepath.Join(baseDir, destName)
+		}
+		slug := req.Owner + "/" + req.Name
+		if req.Host == "" {
+			req.Host = cli.forge.Host
+		}
+		targets = append(targets, CloneTarget{
+			BinGit:        cli.binGit,
+			BinJJ:         cli.binJJ,
+			Branch:        cli.Branch,
+			CustomDest:    req.Dir != "",
+			Depth:         cli.Depth,
+			Dest:          dest,
+			ExplicitOwner: req.ExplicitOwner,
+			Label:         slug,
+			Mirror:        cli.Mirror,
+			Owner:         req.Owner,
+			Repo:          req.Name,
+			RepoURL:       repoWebURL(req.Host, slug),
+			SingleBranch:  cli.Quick,
+			Slug:          slug,
+			Source:        resolveCloneSource(cli.Method, req, cli.forge),
+			VCS:           cli.VCS,
+		})
+	}
+	if err := detectDestinationClashes(targets); err != nil {
+		return nil, err
+	}
+	return targets, nil
+}
+
+func viewerSpinner(cli *CLI) *fx.Builder {
+	s := clog.Spinner("Fetching")
+	if f := formatTopicFilters(cli.LanguageFilters); f != "" {
+		s = s.Str(pluralize("language", cli.LanguageFilters), f)
+	}
+	if f := formatTopicFilters(cli.TopicFilters); f != "" {
+		s = s.Str(pluralize("topic", cli.TopicFilters), f)
+	}
+	if f := formatRangeFilter(cli.StarsFilter); f != "" {
+		s = s.Str(keyStars, f)
+	}
+	if cli.Starred {
+		s = s.Bool("starred", true)
+	}
+	if cli.Watching {
+		s = s.Bool("watching", true)
+	}
+	return s
+}
+
 func resolveCloneTargets(
 	ctx context.Context,
 	cli *CLI,
 	lister repoLister,
 ) ([]CloneTarget, string, error) {
+	if cli.Starred || cli.Watching {
+		return resolveViewerTargets(ctx, cli, lister)
+	}
+
 	repos := cli.Repos
-	if len(repos) == 0 && (len(cli.Languages) > 0 || len(cli.Topics) > 0 || cli.Owner != "") {
+	if len(repos) == 0 &&
+		(len(cli.Languages) > 0 || len(cli.Topics) > 0 || cli.StarsFilter.present() || cli.Owner != "") {
 		repos = []string{keywordAll}
 	}
 
@@ -217,15 +387,16 @@ func resolveCloneTargets(
 	if needQuery {
 		for _, owner := range requestedOwners(requests) {
 			var ownerRepos []repoInfo
-			s := fetchSpinner(owner, cli.LanguageFilters, cli.TopicFilters)
+			s := fetchSpinner(owner, cli)
 			listErr := s.Wait(ctx, func(_ context.Context) error {
 				var listErr error
 				ownerRepos, listErr = lister.ListOwnerRepos(owner, repoListOptions{
 					IncludeArchived: cli.Archived,
 					IncludeForked:   cli.Forked,
-					Visibility:      cli.Visibility,
 					Languages:       cli.Languages,
+					Stars:           cli.StarsFilter,
 					TopicFilters:    cli.TopicFilters,
+					Visibility:      cli.Visibility,
 				})
 				if listErr != nil {
 					return listErr
@@ -398,7 +569,8 @@ func resolveBaseDirectory(cli *CLI, tempDir string) (string, error) {
 func requiresRepoQuery(cli *CLI, requests []repoRequest) bool {
 	if len(cli.Languages) > 0 || len(cli.Topics) > 0 || cli.Visibility != keywordAll ||
 		cli.Archived ||
-		cli.Forked {
+		cli.Forked ||
+		cli.StarsFilter.present() {
 		return true
 	}
 	for _, req := range requests {
@@ -493,16 +665,35 @@ func formatTopicFilters(filters [][]string) string {
 	return formatAND(parts)
 }
 
-func fetchSpinner(owner string, languageFilters, topicFilters [][]string) *fx.Builder {
+func fetchSpinner(owner string, cli *CLI) *fx.Builder {
 	s := clog.Spinner("Fetching").
-		Link("owner", "https://github.com/"+owner, owner)
-	if f := formatTopicFilters(languageFilters); f != "" {
-		s = s.Str(pluralize("language", languageFilters), f)
+		Link(keyOwner, "https://github.com/"+owner, owner)
+	if f := formatTopicFilters(cli.LanguageFilters); f != "" {
+		s = s.Str(pluralize("language", cli.LanguageFilters), f)
 	}
-	if f := formatTopicFilters(topicFilters); f != "" {
-		s = s.Str(pluralize("topic", topicFilters), f)
+	if f := formatTopicFilters(cli.TopicFilters); f != "" {
+		s = s.Str(pluralize("topic", cli.TopicFilters), f)
+	}
+	if f := formatRangeFilter(cli.StarsFilter); f != "" {
+		s = s.Str(keyStars, f)
 	}
 	return s
+}
+
+// formatRangeFilter renders a rangeFilter as a concise, human-readable string.
+func formatRangeFilter(r rangeFilter) string {
+	switch {
+	case !r.present():
+		return ""
+	case r.min > 0 && r.max > 0 && r.min == r.max:
+		return fmt.Sprintf("%d", r.min)
+	case r.min > 0 && r.max > 0:
+		return fmt.Sprintf("%d..%d", r.min, r.max)
+	case r.min > 0:
+		return fmt.Sprintf(">=%d", r.min)
+	default:
+		return fmt.Sprintf("<=%d", r.max)
+	}
 }
 
 func pluralize(singular string, filters [][]string) string {

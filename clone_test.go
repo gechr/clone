@@ -190,7 +190,7 @@ func TestClonerDryRunCommand(t *testing.T) {
 				Dest:   "repo",
 				VCS:    vcsJJ,
 			}),
-			want: "git clone git@github.com:owner/repo.git repo && " +
+			want: "git clone git@github.com:owner/repo.git repo" + dryRunSep() + "" +
 				"jj git init --color=never --colocate repo",
 		},
 		{
@@ -204,8 +204,8 @@ func TestClonerDryRunCommand(t *testing.T) {
 				PullRequest: "21",
 				PRHeadRef:   "feature-branch",
 			},
-			want: "git clone git@github.com:owner/repo.git repo && " +
-				"git -C repo fetch origin refs/pull/21/head:feature-branch --no-tags && " +
+			want: "git clone git@github.com:owner/repo.git repo" + dryRunSep() + "" +
+				"git -C repo fetch origin refs/pull/21/head:feature-branch --no-tags" + dryRunSep() + "" +
 				"git -C repo checkout feature-branch",
 		},
 		{
@@ -220,10 +220,10 @@ func TestClonerDryRunCommand(t *testing.T) {
 				PullRequest: "21",
 				PRHeadRef:   "feature-branch",
 			},
-			want: "git clone git@github.com:owner/repo.git repo && " +
-				"jj git init --color=never --colocate repo && " +
-				"git -C repo fetch origin refs/pull/21/head:feature-branch --no-tags && " +
-				"jj -R repo git import && " +
+			want: "git clone git@github.com:owner/repo.git repo" + dryRunSep() + "" +
+				"jj git init --color=never --colocate repo" + dryRunSep() + "" +
+				"git -C repo fetch origin refs/pull/21/head:feature-branch --no-tags" + dryRunSep() + "" +
+				"jj -R repo git import" + dryRunSep() + "" +
 				"jj -R repo new feature-branch",
 		},
 	}
@@ -313,7 +313,7 @@ func TestFetcherDryRunCommand(t *testing.T) {
 		{
 			name:    "jj",
 			fetcher: &Fetcher{BinGit: "git", BinJJ: "jj", Dest: "repo", VCS: vcsJJ},
-			want:    "git -C repo fetch && jj -R repo git import --quiet",
+			want:    "git -C repo fetch" + dryRunSep() + "jj -R repo git import --quiet",
 		},
 	}
 

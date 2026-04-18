@@ -5,6 +5,10 @@ const (
 	pathSep         = "/"   // URL path separator
 	ownerAtMe       = "@me" // GitHub alias for the authenticated user
 
+	keyOwner  = "owner"
+	keySource = "source"
+	keyStars  = "stars"
+
 	hostAzureDevOps = "dev.azure.com"
 	hostBitbucket   = "bitbucket.org"
 	hostCodeberg    = "codeberg.org"

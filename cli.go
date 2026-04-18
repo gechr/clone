@@ -37,12 +37,15 @@ type CLI struct {
 
 	Repos []string `name:"repo" help:"Repositories to clone." arg:"" optional:""`
 
-	Owner string `name:"owner" help:"GitHub owner/organization" short:"O" aliases:"org,organization" placeholder:"<owner>" clib:"terse='Owner/org',group='Filters/1'" env:"CLONE_OWNER"`
+	Owner    string `name:"owner"    help:"GitHub owner/organization"              short:"O" aliases:"org,organization" placeholder:"<owner>" clib:"terse='Owner/org',group='Filters/1'" env:"CLONE_OWNER"`
+	Starred  bool   `name:"starred"  help:"Clone repositories starred by the user"                                                            clib:"terse='Starred',group='Filters/1'"`
+	Watching bool   `name:"watching" help:"Clone repositories watched by the user"                                                            clib:"terse='Watching',group='Filters/1'"`
 
 	Archived   bool     `name:"archived"   help:"Include archived repositories"   aliases:"archive,archives" clib:"terse='Include archived',group='Filters/2'"`
 	Forked     bool     `name:"forked"     help:"Include forked repositories"     aliases:"fork,forks"       clib:"terse='Include forked',group='Filters/2'"`
 	Languages  []string `name:"language"   help:"Filter by language (repeatable)"                            clib:"terse='Language',group='Filters/2'"         short:"l" placeholder:"<lang>"`
 	Topics     []string `name:"topic"      help:"Filter by topic (repeatable)"                               clib:"terse='Topic',group='Filters/2'"            short:"t" placeholder:"<topic>"`
+	Stars      string   "name:\"stars\"     help:\"Filter by star count (e.g. `5`, `>=5`, `<10`, `5..50`)\"                      clib:\"terse='Stars',group='Filters/2'\"                   placeholder:\"<expr>\""
 	Visibility string   `name:"visibility" help:"Filter by visibility"                                       clib:"terse='Visibility',group='Filters/2'"                 placeholder:"<viz>"   default:"all" enum:"all,public,private,internal"`
 
 	IncludePatterns []string `name:"include-pattern" help:"Only clone repositories matching regex (repeatable)" short:"i" placeholder:"<regex>" clib:"hide-long,terse='Include (regex)',group='Filters/3'"`
@@ -66,21 +69,22 @@ type CLI struct {
 	Fetch       bool   `name:"fetch"       help:"Fetch updates for existing clones instead of skipping"                                                     clib:"terse='Fetch existing',group='Options/4'"                xor:"fetch"`
 	Pull        bool   `name:"pull"        help:"Pull updates for existing clones"                                                                          clib:"terse='Pull existing',group='Options/4'"`
 	Force       bool   `name:"force"       help:"Overwrite existing clones"                             short:"f"                                           clib:"terse='Force overwrite',group='Options/4'"               xor:"fetch"`
-	Dry         bool   `name:"dry"         help:"Show what would be cloned without cloning"             short:"n" aliases:"dry-run"                         clib:"terse='Dry run',group='Options/4'"`
+	DryRun      bool   `                   help:"Show what would be cloned without cloning"             short:"n" aliases:"dry"                             clib:"terse='Dry run',group='Options/4'"`
 	Parallelism int    `name:"parallelism" help:"Number of parallel clones"                             short:"P"                    placeholder:"<n>"      clib:"terse='Parallelism',group='Options/4'"                                   default:"20"`
-	Quiet       bool   `name:"quiet"       help:"Suppress informational output"                         short:"q"                                           clib:"terse='Quiet',group='Options/5'"                         xor:"verbosity"`
-	Verbose     bool   `name:"verbose"     help:"Show additional progress information"                  short:"v"                                           clib:"terse='Verbose',group='Options/5'"                       xor:"verbosity"`
-	Debug       bool   `name:"debug"       help:"Show debug logs"                                                                                           clib:"terse='Debug logs',group='Options/5'"                    xor:"verbosity"`
+	Quiet       bool   `name:"quiet"       help:"Suppress informational output"                         short:"q"                                           clib:"terse='Quiet',group='Miscellaneous/2'"                   xor:"verbosity"`
+	Verbose     bool   `name:"verbose"     help:"Show additional progress information"                  short:"v"                                           clib:"terse='Verbose',group='Miscellaneous/2'"                 xor:"verbosity"`
+	Debug       bool   `name:"debug"       help:"Show debug logs"                                                                                           clib:"terse='Debug logs',group='Miscellaneous/2'"              xor:"verbosity"`
 
-	Color   clog.ColorMode `name:"color"   help:"When to use color" clib:"terse='Color mode',group='Miscellaneous/1'" default:"auto" enum:"auto,always,never"`
-	Version bool           `name:"version" help:"Print version"     clib:"terse='Version',group='Miscellaneous/3'"                                            short:"V"`
+	Color   clog.ColorMode `name:"color"   help:"When to use color" aliases:"colour" clib:"terse='Color mode',group='Miscellaneous/1'" default:"auto" enum:"auto,always,never"`
+	Version bool           `name:"version" help:"Print version"                      clib:"terse='Version',group='Miscellaneous/3'"                                            short:"V"`
 
 	Height float64 `name:"height" help:"Maximum height as a percentage of the terminal (0.0-1.0)." hidden:"" default:"0.5"`
 
 	binGit string `kong:"-"`
 	binJJ  string `kong:"-"`
 
-	forge forgeConfig `kong:"-"`
+	forge       forgeConfig `kong:"-"`
+	StarsFilter rangeFilter `kong:"-"`
 
 	LanguageFilters [][]string `kong:"-"`
 	TopicFilters    [][]string `kong:"-"`
@@ -121,6 +125,18 @@ func (c *CLI) Normalize() {
 	}
 }
 
+func (c *CLI) validateStarsFilter() error {
+	if c.Stars == "" {
+		return nil
+	}
+	r, err := parseRangeFilter(c.Stars)
+	if err != nil {
+		return fmt.Errorf("--stars: %w", err)
+	}
+	c.StarsFilter = r
+	return nil
+}
+
 func (c *CLI) Validate() error {
 	if c.Version {
 		return nil
@@ -153,7 +169,11 @@ func (c *CLI) Validate() error {
 		return err
 	}
 	c.TopicFilters = uniqueTopicFilters(topicFilters)
-	if len(c.Repos) == 0 && len(c.Languages) == 0 && len(c.Topics) == 0 && c.Owner == "" {
+	if starsErr := c.validateStarsFilter(); starsErr != nil {
+		return starsErr
+	}
+	if len(c.Repos) == 0 && len(c.Languages) == 0 && len(c.Topics) == 0 &&
+		!c.StarsFilter.present() && !c.Starred && !c.Watching && c.Owner == "" {
 		return fmt.Errorf("at least one repository is required")
 	}
 	if c.Print && !c.Temp {
@@ -195,6 +215,15 @@ func (c *CLI) validateForgeFlags() error {
 	}
 	if len(c.Topics) > 0 {
 		offending = append(offending, "--topic")
+	}
+	if c.StarsFilter.present() {
+		offending = append(offending, "--stars")
+	}
+	if c.Starred {
+		offending = append(offending, "--starred")
+	}
+	if c.Watching {
+		offending = append(offending, "--watching")
 	}
 	if c.Visibility != "" && c.Visibility != keywordAll {
 		offending = append(offending, "--visibility")

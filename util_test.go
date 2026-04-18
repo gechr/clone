@@ -29,6 +29,112 @@ func TestFormatCommandDryContractsHome(t *testing.T) {
 	)
 }
 
+func TestParseRangeFilter(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+		want rangeFilter
+	}{
+		{name: "bare N means at least N", in: "5", want: rangeFilter{min: 5}},
+		{name: "gte", in: ">=5", want: rangeFilter{min: 5}},
+		{name: "gt converts to min+1", in: ">5", want: rangeFilter{min: 6}},
+		{name: "lte", in: "<=5", want: rangeFilter{max: 5}},
+		{name: "lt converts to max-1", in: "<5", want: rangeFilter{max: 4}},
+		{name: "equals", in: "=5", want: rangeFilter{min: 5, max: 5}},
+		{name: "dotdot range", in: "5..50", want: rangeFilter{min: 5, max: 50}},
+		{name: "dash range", in: "5-50", want: rangeFilter{min: 5, max: 50}},
+		{name: "zero lower bound", in: "0..10", want: rangeFilter{min: 0, max: 10}},
+		{name: "whitespace trimmed", in: "  >=5  ", want: rangeFilter{min: 5}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := parseRangeFilter(test.in)
+			require.NoError(t, err)
+			require.Equal(t, test.want, got)
+		})
+	}
+}
+
+func TestParseRangeFilterRejectsInvalid(t *testing.T) {
+	t.Parallel()
+
+	inputs := []string{
+		"",
+		"abc",
+		">abc",
+		">=",
+		"-5",
+		"5-2",
+		"5..2",
+		"<0",
+		"..5",
+		"5..",
+	}
+	for _, in := range inputs {
+		_, err := parseRangeFilter(in)
+		require.Error(t, err, "parseRangeFilter(%q) should fail", in)
+	}
+}
+
+func TestRangeFilterMatches(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		filter rangeFilter
+		checks map[int]bool
+	}{
+		{
+			name:   "zero value matches everything",
+			filter: rangeFilter{},
+			checks: map[int]bool{0: true, 5: true, 1000: true},
+		},
+		{
+			name:   "min only",
+			filter: rangeFilter{min: 5},
+			checks: map[int]bool{4: false, 5: true, 100: true},
+		},
+		{
+			name:   "max only",
+			filter: rangeFilter{max: 5},
+			checks: map[int]bool{0: true, 5: true, 6: false},
+		},
+		{
+			name:   "inclusive range",
+			filter: rangeFilter{min: 5, max: 10},
+			checks: map[int]bool{4: false, 5: true, 10: true, 11: false},
+		},
+		{
+			name:   "exact",
+			filter: rangeFilter{min: 7, max: 7},
+			checks: map[int]bool{6: false, 7: true, 8: false},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			for n, want := range test.checks {
+				require.Equalf(
+					t,
+					want,
+					test.filter.matches(n),
+					"matches(%d) = %v, want %v",
+					n,
+					test.filter.matches(n),
+					want,
+				)
+			}
+		})
+	}
+}
+
 func TestCompactLines(t *testing.T) {
 	t.Parallel()
 

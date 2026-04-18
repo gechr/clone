@@ -29,6 +29,7 @@ go install github.com/gechr/clone@latest
 | `--forked`                | Include forked repositories                                             |
 | `-l`, `--language <lang>` | Filter by primary language (repeatable, matches any)                    |
 | `-t`, `--topic <topic>`   | Filter by topic (`a,b` = `AND`, `a/b` = `OR`, repeated flags = `AND`)   |
+| `--stars <expr>`          | Filter by star count (e.g. `5`, `>=5`, `<10`, `5..50`)                  |
 | `--visibility <type>`     | Filter by visibility (`all`, `public`, `private`, `internal`)           |
 | `-i <regex>`              | Only clone repositories matching regex (repeatable)                     |
 | `--include <name>`        | Only clone repository by exact name (repeatable)                        |

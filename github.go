@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -9,23 +10,43 @@ import (
 
 type repoLister interface {
 	ListOwnerRepos(owner string, opts repoListOptions) ([]repoInfo, error)
+	ListViewerRepos(source viewerSource, opts repoListOptions) ([]repoInfo, error)
 	ResolvePR(owner, repo string, number int) (prInfo, error)
+}
+
+type viewerSource int
+
+const (
+	viewerStarred viewerSource = iota
+	viewerWatching
+)
+
+func (s viewerSource) label() string {
+	switch s {
+	case viewerStarred:
+		return "starred"
+	case viewerWatching:
+		return "watching"
+	}
+	return ""
 }
 
 type repoListOptions struct {
 	IncludeArchived bool
 	IncludeForked   bool
-	Visibility      string
 	Languages       []string
+	Stars           rangeFilter
 	TopicFilters    [][]string
+	Visibility      string
 }
 
 type repoInfo struct {
-	Owner      string
-	Name       string
-	Visibility string
 	Language   string
+	Name       string
+	Owner      string
+	Stars      int
 	Topics     []string
+	Visibility string
 }
 
 type prInfo struct {
@@ -62,6 +83,7 @@ query OwnerRepos($owner: String!, $endCursor: String) {
         isArchived
         isFork
         visibility
+        stargazerCount
         primaryLanguage { name }
         repositoryTopics(first: 100) {
           nodes {
@@ -84,13 +106,14 @@ query OwnerRepos($owner: String!, $endCursor: String) {
 			RepositoryOwner *struct {
 				Repositories struct {
 					Nodes []struct {
-						Name            string `json:"name"`
-						IsArchived      bool   `json:"isArchived"`
-						IsFork          bool   `json:"isFork"`
-						Visibility      string `json:"visibility"`
-						PrimaryLanguage *struct {
+						IsArchived bool `json:"isArchived"`
+						IsFork     bool `json:"isFork"`
+						Language   *struct {
 							Name string `json:"name"`
 						} `json:"primaryLanguage"`
+						Name             string `json:"name"`
+						StargazerCount   int    `json:"stargazerCount"`
+						Visibility       string `json:"visibility"`
 						RepositoryTopics struct {
 							Nodes []struct {
 								Topic *struct {
@@ -130,8 +153,8 @@ query OwnerRepos($owner: String!, $endCursor: String) {
 			}
 
 			language := ""
-			if node.PrimaryLanguage != nil {
-				language = node.PrimaryLanguage.Name
+			if node.Language != nil {
+				language = node.Language.Name
 			}
 			if len(opts.Languages) > 0 && !matchesAnyFold(opts.Languages, language) {
 				continue
@@ -147,12 +170,17 @@ query OwnerRepos($owner: String!, $endCursor: String) {
 				continue
 			}
 
+			if opts.Stars.present() && !opts.Stars.matches(node.StargazerCount) {
+				continue
+			}
+
 			repos = append(repos, repoInfo{
-				Owner:      owner,
-				Name:       node.Name,
-				Visibility: visibility,
 				Language:   language,
+				Name:       node.Name,
+				Owner:      owner,
+				Stars:      node.StargazerCount,
 				Topics:     topics,
+				Visibility: visibility,
 			})
 		}
 
@@ -160,6 +188,150 @@ query OwnerRepos($owner: String!, $endCursor: String) {
 			break
 		}
 		cursor = result.RepositoryOwner.Repositories.PageInfo.EndCursor
+	}
+
+	return repos, nil
+}
+
+func (l *graphQLRepoLister) ListViewerRepos(
+	source viewerSource,
+	opts repoListOptions,
+) ([]repoInfo, error) {
+	connection := "starredRepositories"
+	if source == viewerWatching {
+		connection = "watching"
+	}
+	query := fmt.Sprintf(`
+query($endCursor: String) {
+  viewer {
+    %s(first: 100, after: $endCursor) {
+      nodes {
+        name
+        owner { login }
+        isArchived
+        isFork
+        visibility
+        stargazerCount
+        primaryLanguage { name }
+        repositoryTopics(first: 100) {
+          nodes {
+            topic { name }
+          }
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+}`, connection)
+
+	var repos []repoInfo
+	var cursor *string
+	for {
+		var result struct {
+			Viewer struct {
+				Connection struct {
+					Nodes []struct {
+						IsArchived bool `json:"isArchived"`
+						IsFork     bool `json:"isFork"`
+						Language   *struct {
+							Name string `json:"name"`
+						} `json:"primaryLanguage"`
+						Name  string `json:"name"`
+						Owner struct {
+							Login string `json:"login"`
+						} `json:"owner"`
+						StargazerCount   int    `json:"stargazerCount"`
+						Visibility       string `json:"visibility"`
+						RepositoryTopics struct {
+							Nodes []struct {
+								Topic *struct {
+									Name string `json:"name"`
+								} `json:"topic"`
+							} `json:"nodes"`
+						} `json:"repositoryTopics"`
+					} `json:"nodes"`
+					PageInfo struct {
+						HasNextPage bool    `json:"hasNextPage"`
+						EndCursor   *string `json:"endCursor"`
+					} `json:"pageInfo"`
+				} `json:"-"`
+			} `json:"viewer"`
+		}
+
+		raw := map[string]any{}
+		if err := l.client.Do(query, map[string]any{"endCursor": cursor}, &raw); err != nil {
+			return nil, fmt.Errorf("querying viewer %s: %w", source.label(), err)
+		}
+		viewer, ok := raw["viewer"].(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("could not read viewer %s response", source.label())
+		}
+		connRaw, ok := viewer[connection]
+		if !ok {
+			return nil, fmt.Errorf("could not read viewer.%s response", connection)
+		}
+		// Re-decode the specific connection into our typed struct.
+		connBytes, err := json.Marshal(connRaw)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(connBytes, &result.Viewer.Connection); err != nil {
+			return nil, err
+		}
+
+		for _, node := range result.Viewer.Connection.Nodes {
+			if !opts.IncludeArchived && node.IsArchived {
+				continue
+			}
+			if !opts.IncludeForked && node.IsFork {
+				continue
+			}
+
+			visibility := strings.ToLower(node.Visibility)
+			if opts.Visibility != "" && opts.Visibility != keywordAll &&
+				visibility != opts.Visibility {
+				continue
+			}
+
+			language := ""
+			if node.Language != nil {
+				language = node.Language.Name
+			}
+			if len(opts.Languages) > 0 && !matchesAnyFold(opts.Languages, language) {
+				continue
+			}
+
+			topics := make([]string, 0, len(node.RepositoryTopics.Nodes))
+			for _, topicNode := range node.RepositoryTopics.Nodes {
+				if topicNode.Topic != nil && topicNode.Topic.Name != "" {
+					topics = append(topics, topicNode.Topic.Name)
+				}
+			}
+			if len(opts.TopicFilters) > 0 && !matchesTopicFilters(opts.TopicFilters, topics...) {
+				continue
+			}
+
+			if opts.Stars.present() && !opts.Stars.matches(node.StargazerCount) {
+				continue
+			}
+
+			repos = append(repos, repoInfo{
+				Language:   language,
+				Name:       node.Name,
+				Owner:      node.Owner.Login,
+				Stars:      node.StargazerCount,
+				Topics:     topics,
+				Visibility: visibility,
+			})
+		}
+
+		if !result.Viewer.Connection.PageInfo.HasNextPage {
+			break
+		}
+		cursor = result.Viewer.Connection.PageInfo.EndCursor
 	}
 
 	return repos, nil

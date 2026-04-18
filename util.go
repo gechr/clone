@@ -3,13 +3,113 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gechr/x/human"
 )
+
+// rangeFilter is an inclusive [min, max] integer range. Zero on either side
+// means unbounded on that side — the zero value matches everything, which
+// suits filters like star counts where min:0 is a no-op anyway.
+type rangeFilter struct {
+	min int
+	max int
+}
+
+func (r rangeFilter) present() bool { return r.min > 0 || r.max > 0 }
+
+func (r rangeFilter) matches(n int) bool {
+	if r.min > 0 && n < r.min {
+		return false
+	}
+	if r.max > 0 && n > r.max {
+		return false
+	}
+	return true
+}
+
+// parseRangeFilter parses a star-style filter expression. Supported forms:
+//
+//	N            (at least N)
+//	>N, >=N      (strictly more than / at least N)
+//	<N, <=N      (strictly less than / at most N)
+//	=N           (exactly N)
+//	N..M, N-M    (inclusive range)
+func parseRangeFilter(expr string) (rangeFilter, error) {
+	s := strings.TrimSpace(expr)
+	if s == "" {
+		return rangeFilter{}, fmt.Errorf("empty range filter")
+	}
+	for _, sep := range []string{"..", "-"} {
+		before, after, ok := strings.Cut(s, sep)
+		if !ok {
+			continue
+		}
+		lo, errLo := strconv.Atoi(before)
+		hi, errHi := strconv.Atoi(after)
+		if errLo != nil || errHi != nil {
+			continue
+		}
+		if lo < 0 || hi < lo {
+			return rangeFilter{}, fmt.Errorf("invalid range %q", expr)
+		}
+		return rangeFilter{min: lo, max: hi}, nil
+	}
+
+	parseInt := func(body string) (int, error) {
+		n, err := strconv.Atoi(body)
+		if err != nil || n < 0 {
+			return 0, fmt.Errorf("invalid range %q", expr)
+		}
+		return n, nil
+	}
+	switch {
+	case strings.HasPrefix(s, ">="):
+		n, err := parseInt(s[2:])
+		if err != nil {
+			return rangeFilter{}, err
+		}
+		return rangeFilter{min: n}, nil
+	case strings.HasPrefix(s, "<="):
+		n, err := parseInt(s[2:])
+		if err != nil {
+			return rangeFilter{}, err
+		}
+		return rangeFilter{max: n}, nil
+	case strings.HasPrefix(s, ">"):
+		n, err := parseInt(s[1:])
+		if err != nil {
+			return rangeFilter{}, err
+		}
+		return rangeFilter{min: n + 1}, nil
+	case strings.HasPrefix(s, "<"):
+		n, err := parseInt(s[1:])
+		if err != nil {
+			return rangeFilter{}, err
+		}
+		if n == 0 {
+			return rangeFilter{}, fmt.Errorf("invalid range %q (would match nothing)", expr)
+		}
+		return rangeFilter{max: n - 1}, nil
+	case strings.HasPrefix(s, "="):
+		n, err := parseInt(s[1:])
+		if err != nil {
+			return rangeFilter{}, err
+		}
+		return rangeFilter{min: n, max: n}, nil
+	default:
+		n, err := parseInt(s)
+		if err != nil {
+			return rangeFilter{}, err
+		}
+		return rangeFilter{min: n}, nil
+	}
+}
 
 func compactLines(text string) string {
 	lines := strings.Split(text, "\n")

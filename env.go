@@ -13,12 +13,12 @@ const (
 )
 
 type envConfig struct {
+	Aliases     map[string]string `env:"OWNER_ALIASES" envKeyValSeparator:"="`
 	BinGit      string            `env:"BIN_GIT"`
 	BinJJ       string            `env:"BIN_JJ"`
 	GitHubToken string            `env:"GITHUB_TOKEN"`
 	Owner       string            `env:"OWNER"`
 	TempDir     string            `env:"TMP_DIR"`
-	Aliases     map[string]string `env:"OWNER_ALIASES" envKeyValSeparator:"="`
 }
 
 func loadEnvConfig() (envConfig, error) {

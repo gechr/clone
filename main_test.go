@@ -127,7 +127,7 @@ func TestBuildParserFlagAliases(t *testing.T) {
 			args: []string{"--dry-run", "repo"},
 			check: func(t *testing.T, cli *CLI) {
 				t.Helper()
-				assert.True(t, cli.Dry)
+				assert.True(t, cli.DryRun)
 			},
 		},
 		{

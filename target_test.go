@@ -12,8 +12,26 @@ import (
 const testDefaultOwner = "octo"
 
 type fakeRepoLister struct {
-	repos map[string][]repoInfo
-	prs   map[string]prInfo
+	repos  map[string][]repoInfo
+	prs    map[string]prInfo
+	viewer map[viewerSource][]repoInfo
+}
+
+func (f fakeRepoLister) ListViewerRepos(
+	source viewerSource,
+	opts repoListOptions,
+) ([]repoInfo, error) {
+	var filtered []repoInfo
+	for _, repo := range f.viewer[source] {
+		if len(opts.Languages) > 0 && !matchesAnyFold(opts.Languages, repo.Language) {
+			continue
+		}
+		if opts.Stars.present() && !opts.Stars.matches(repo.Stars) {
+			continue
+		}
+		filtered = append(filtered, repo)
+	}
+	return filtered, nil
 }
 
 func (f fakeRepoLister) ListOwnerRepos(owner string, opts repoListOptions) ([]repoInfo, error) {
@@ -26,6 +44,9 @@ func (f fakeRepoLister) ListOwnerRepos(owner string, opts repoListOptions) ([]re
 			continue
 		}
 		if len(opts.TopicFilters) > 0 && !matchesTopicFilters(opts.TopicFilters, repo.Topics...) {
+			continue
+		}
+		if opts.Stars.present() && !opts.Stars.matches(repo.Stars) {
 			continue
 		}
 		filtered = append(filtered, repo)
@@ -601,6 +622,72 @@ func TestPluralize(t *testing.T) {
 			require.Equal(t, test.want, pluralize(test.singular, test.filters))
 		})
 	}
+}
+
+func TestResolveCloneTargetsStarsFilter(t *testing.T) {
+	t.Parallel()
+
+	repos := []repoInfo{
+		{Owner: testDefaultOwner, Name: "tiny", Stars: 2},
+		{Owner: testDefaultOwner, Name: "medium", Stars: 20},
+		{Owner: testDefaultOwner, Name: "huge", Stars: 2000},
+	}
+
+	tests := []struct {
+		name string
+		expr string
+		want []string
+	}{
+		{name: "at least 10", expr: ">=10", want: []string{"huge", "medium"}},
+		{name: "at most 10", expr: "<=10", want: []string{"tiny"}},
+		{name: "range", expr: "10..100", want: []string{"medium"}},
+		{name: "dash range", expr: "10-100", want: []string{"medium"}},
+		{name: "bare N is at least N", expr: "1000", want: []string{"huge"}},
+		{name: "exact", expr: "=20", want: []string{"medium"}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			cli := &CLI{
+				Owner:       testDefaultOwner,
+				Repos:       []string{"all"},
+				Method:      methodSSH,
+				VCS:         vcsGit,
+				Visibility:  keywordAll,
+				Parallelism: defaultParallelism,
+				Stars:       test.expr,
+			}
+			require.NoError(t, cli.Validate())
+
+			targets, _, err := resolveCloneTargets(
+				context.Background(),
+				cli,
+				fakeRepoLister{repos: map[string][]repoInfo{testDefaultOwner: repos}},
+			)
+			require.NoError(t, err)
+
+			got := make([]string, len(targets))
+			for i, target := range targets {
+				got[i] = target.Repo
+			}
+			require.Equal(t, test.want, got)
+		})
+	}
+}
+
+func TestCLIValidateRejectsInvalidStars(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:       []string{"owner/repo"},
+		Stars:       "abc",
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+	}
+
+	require.EqualError(t, cli.Validate(), `--stars: invalid range "abc"`)
 }
 
 func TestResolveCloneTargetsForgeBareRepoUsesForgeHost(t *testing.T) {
