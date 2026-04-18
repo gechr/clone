@@ -46,7 +46,7 @@ type CLI struct {
 	Languages  []string `name:"language"   help:"Filter by language (repeatable)"                            clib:"terse='Language',group='Filters/2'"         short:"l" placeholder:"<lang>"`
 	Topics     []string `name:"topic"      help:"Filter by topic (repeatable)"                               clib:"terse='Topic',group='Filters/2'"            short:"t" placeholder:"<topic>"`
 	Stars      string   "name:\"stars\"     help:\"Filter by star count (e.g. `5`, `>=5`, `<10`, `5..50`)\"                      clib:\"terse='Stars',group='Filters/2'\"                   placeholder:\"<expr>\""
-	Visibility string   `name:"visibility" help:"Filter by visibility"                                       clib:"terse='Visibility',group='Filters/2'"                 placeholder:"<viz>"   default:"all" enum:"all,public,private,internal"`
+	Visibility string   `name:"visibility" help:"Filter by visibility"            aliases:"viz"              clib:"terse='Visibility',group='Filters/2'"                 placeholder:"<viz>"   default:"all" enum:"all,public,private,internal"`
 
 	IncludePatterns []string `name:"include-pattern" help:"Only clone repositories matching regex (repeatable)" short:"i" placeholder:"<regex>" clib:"hide-long,terse='Include (regex)',group='Filters/3'"`
 	Includes        []string `name:"include"         help:"Only clone repositories by exact name (repeatable)"            placeholder:"<name>"  clib:"no-indent,terse='Include',group='Filters/3'"`
