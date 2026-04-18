@@ -7,10 +7,11 @@ tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 require (
 	charm.land/lipgloss/v2 v2.0.3
 	github.com/alecthomas/kong v1.15.0
+	github.com/caarlos0/env/v11 v11.4.0
 	github.com/cli/go-gh/v2 v2.13.0
-	github.com/gechr/clib v0.4.0
+	github.com/gechr/clib v0.4.3
 	github.com/gechr/clog v0.9.0
-	github.com/gechr/x v0.0.1
+	github.com/gechr/x v0.0.3
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -54,7 +55,6 @@ require (
 	github.com/breml/errchkjson v0.4.1 // indirect
 	github.com/butuzov/ireturn v0.4.0 // indirect
 	github.com/butuzov/mirror v1.3.0 // indirect
-	github.com/caarlos0/env/v11 v11.4.0 // indirect
 	github.com/catenacyber/perfsprint v0.10.1 // indirect
 	github.com/ccojocar/zxcvbn-go v1.0.4 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect

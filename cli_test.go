@@ -119,6 +119,93 @@ func TestCLIValidateParsesLanguageFilters(t *testing.T) {
 	require.Equal(t, [][]string{{"a", "b"}}, cli.LanguageFilters)
 }
 
+func TestCLIValidateForgeDefaultsToGitHub(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:       []string{"owner/repo"},
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+	}
+
+	require.NoError(t, cli.Validate())
+	require.Equal(t, hostGitHub, cli.forge.Host)
+}
+
+func TestCLIValidateForgeAcceptsName(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:       []string{"owner/repo"},
+		Forge:       "gitlab",
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+	}
+
+	require.NoError(t, cli.Validate())
+	require.Equal(t, hostGitLab, cli.forge.Host)
+}
+
+func TestCLIValidateForgeAcceptsCustomHost(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:       []string{"owner/repo"},
+		Forge:       "git.example.com",
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+	}
+
+	require.NoError(t, cli.Validate())
+	require.Equal(t, "git.example.com", cli.forge.Host)
+}
+
+func TestCLIValidateForgeRejectsGitHubOnlyFlags(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		cli  CLI
+		msg  string
+	}{
+		{
+			name: "archived",
+			cli:  CLI{Archived: true},
+			msg:  "--archived is only currently supported for GitHub hosts",
+		},
+		{
+			name: "language",
+			cli:  CLI{Languages: []string{"go"}},
+			msg:  "--language is only currently supported for GitHub hosts",
+		},
+		{
+			name: "topic",
+			cli:  CLI{Topics: []string{"cli"}},
+			msg:  "--topic is only currently supported for GitHub hosts",
+		},
+		{
+			name: "multiple joined with slash",
+			cli:  CLI{Archived: true, Forked: true},
+			msg:  "--archived/--forked is only currently supported for GitHub hosts",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			c := test.cli
+			c.Repos = []string{"owner/repo"}
+			c.Forge = "gitlab"
+			c.Visibility = keywordAll
+			c.Parallelism = defaultParallelism
+
+			err := c.Validate()
+			require.EqualError(t, err, test.msg)
+		})
+	}
+}
+
 func TestCLIValidateFetchAlone(t *testing.T) {
 	t.Parallel()
 

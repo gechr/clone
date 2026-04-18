@@ -7,7 +7,10 @@ import (
 	"github.com/caarlos0/env/v11"
 )
 
-const envCloneVCS = "CLONE_VCS"
+const (
+	envCloneVCS   = "CLONE_VCS"
+	envCloneForge = "CLONE_FORGE"
+)
 
 type envConfig struct {
 	BinGit      string            `env:"BIN_GIT"`

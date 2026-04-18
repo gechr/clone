@@ -394,6 +394,51 @@ func TestParseForgeURL(t *testing.T) {
 	}
 }
 
+func TestResolveForge(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  forgeConfig
+	}{
+		{name: "empty defaults to github", input: "", want: forgeRegistry[forgeGitHub]},
+		{name: "github by name", input: "github", want: forgeRegistry[forgeGitHub]},
+		{name: "gitlab by name", input: "gitlab", want: forgeRegistry[forgeGitLab]},
+		{name: "sourcehut by name", input: "sourcehut", want: forgeRegistry[forgeSourcehut]},
+		{name: "codeberg by name", input: "codeberg", want: forgeRegistry[forgeCodeberg]},
+		{name: "bitbucket by name", input: "bitbucket", want: forgeRegistry[forgeBitbucket]},
+		{name: "case insensitive", input: "GitHub", want: forgeRegistry[forgeGitHub]},
+		{name: "whitespace trimmed", input: "  gitlab  ", want: forgeRegistry[forgeGitLab]},
+		{name: "host lookup", input: "github.com", want: forgeRegistry[forgeGitHub]},
+		{name: "sourcehut host", input: "git.sr.ht", want: forgeRegistry[forgeSourcehut]},
+		{
+			name:  "custom host",
+			input: "git.example.com",
+			want:  forgeConfig{Name: "git.example.com", Host: "git.example.com", GitSuffix: true},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := resolveForge(test.input)
+			require.NoError(t, err)
+			require.Equal(t, test.want, got)
+		})
+	}
+}
+
+func TestResolveForgeRejectsUnknown(t *testing.T) {
+	t.Parallel()
+
+	for _, input := range []string{"nope", "git hub", "foo bar"} {
+		_, err := resolveForge(input)
+		require.Error(t, err, "resolveForge(%q) should fail", input)
+	}
+}
+
 func TestParseForgeURLRejectsInvalid(t *testing.T) {
 	t.Parallel()
 

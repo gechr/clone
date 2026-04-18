@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -9,6 +10,18 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// TestMain replaces ghOwnerLookup with a fail-fast stub so any test that
+// reaches the GitHub owner lookup path without explicitly stubbing it fails
+// instantly instead of hanging on a real network call.
+func TestMain(m *testing.M) {
+	ghOwnerLookup = func() (string, error) {
+		return "", fmt.Errorf(
+			"ghOwnerLookup called without a stub - tests must not hit the network",
+		)
+	}
+	os.Exit(m.Run())
+}
 
 func TestBuildParserQuick(t *testing.T) {
 	t.Parallel()

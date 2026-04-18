@@ -55,6 +55,7 @@ type CLI struct {
 	Depth       int    `name:"depth"       help:"Create a shallow clone of the given depth"             short:"D"                    placeholder:"<n>"      clib:"terse='Depth',group='Options/1'"                         xor:"shallow"`
 	Quick       bool   "name:\"quick\"     help:\"Shallow single-branch clone (alias for `--depth=1 --single-branch`)\" short:\"Q\"                                         clib:\"terse='Quick clone',group='Options/1'\"                 xor:\"shallow\""
 	Method      string `name:"method"      help:"Clone method"                                          short:"m"                    placeholder:"<method>" clib:"terse='Clone method',enum='ssh,https',group='Options/1'"                 default:"ssh" enum:"ssh,https,http" env:"CLONE_METHOD"`
+	Forge       string `name:"forge"       help:"Forge to use for bare owner/repo arguments"                                         placeholder:"<forge>"  clib:"terse='Forge',group='Options/1'"`
 	Mirror      bool   `name:"mirror"      help:"Create a mirror clone"                                                                                     clib:"terse='Mirror clone',group='Options/1'"                  xor:"fetch"`
 	VCS         string `name:"vcs"         help:"Version control system"                                                             placeholder:"<vcs>"    clib:"terse='VCS',group='Options/1'"`
 	JJ          bool   "name:\"jj\"        help:\"Clone with `jj` (alias for `--vcs=jj`)\"                                                                                  clib:\"terse='Jujutsu',group='Options/1'\"                                                                                        xor:\"vcs\""
@@ -77,6 +78,8 @@ type CLI struct {
 
 	binGit string `kong:"-"`
 	binJJ  string `kong:"-"`
+
+	forge forgeConfig `kong:"-"`
 
 	LanguageFilters [][]string `kong:"-"`
 	TopicFilters    [][]string `kong:"-"`
@@ -111,6 +114,9 @@ func (c *CLI) Normalize() {
 	}
 	if c.Print {
 		c.Quiet = true
+	}
+	if c.Forge == "" {
+		c.Forge = envLower(envCloneForge)
 	}
 }
 
@@ -161,7 +167,41 @@ func (c *CLI) Validate() error {
 	if c.Mirror && c.VCS == vcsJJ {
 		return fmt.Errorf("--mirror is not supported with jj (use --vcs=git)")
 	}
-	return nil
+	forge, err := resolveForge(c.Forge)
+	if err != nil {
+		return err
+	}
+	c.forge = forge
+	return c.validateForgeFlags()
+}
+
+func (c *CLI) validateForgeFlags() error {
+	if c.forge.Host == hostGitHub {
+		return nil
+	}
+	var offending []string
+	if c.Archived {
+		offending = append(offending, "--archived")
+	}
+	if c.Forked {
+		offending = append(offending, "--forked")
+	}
+	if len(c.Languages) > 0 {
+		offending = append(offending, "--language")
+	}
+	if len(c.Topics) > 0 {
+		offending = append(offending, "--topic")
+	}
+	if c.Visibility != "" && c.Visibility != keywordAll {
+		offending = append(offending, "--visibility")
+	}
+	if len(offending) == 0 {
+		return nil
+	}
+	return fmt.Errorf(
+		"%s is only currently supported for GitHub hosts",
+		strings.Join(offending, "/"),
+	)
 }
 
 func parseFilters(key string, values []string) ([][]string, error) {

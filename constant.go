@@ -6,9 +6,17 @@ const (
 	ownerAtMe       = "@me" // GitHub alias for the authenticated user
 
 	hostAzureDevOps = "dev.azure.com"
+	hostBitbucket   = "bitbucket.org"
+	hostCodeberg    = "codeberg.org"
 	hostGitHub      = "github.com"
 	hostGitLab      = "gitlab.com"
 	hostSourcehut   = "git.sr.ht"
+
+	forgeBitbucket = "bitbucket"
+	forgeCodeberg  = "codeberg"
+	forgeGitHub    = "github"
+	forgeGitLab    = "gitlab"
+	forgeSourcehut = "sourcehut"
 
 	schemeGit   = "git"
 	schemeHTTPS = "https"

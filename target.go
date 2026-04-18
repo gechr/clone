@@ -112,6 +112,16 @@ const (
 	maxRepoNameBytes = 255 // common filesystem NAME_MAX for a single path component
 )
 
+func ensureDefaultOwner(defaultOwner string, nonGitHub bool) (string, error) {
+	if defaultOwner != "" {
+		return defaultOwner, nil
+	}
+	if nonGitHub {
+		return "", fmt.Errorf("owner must be specified explicitly for non-GitHub forges")
+	}
+	return resolveDefaultOwner()
+}
+
 func resolveCloneTargets(
 	ctx context.Context,
 	cli *CLI,
@@ -127,8 +137,16 @@ func resolveCloneTargets(
 		return nil, "", cfgErr
 	}
 
+	if cli.forge.Host == "" {
+		cli.forge = forgeRegistry[forgeGitHub]
+	}
+	nonGitHub := cli.forge.Host != hostGitHub
+
 	defaultOwner := resolveOwnerAlias(strings.TrimSpace(cli.Owner), envCfg.Aliases)
 	if strings.EqualFold(defaultOwner, ownerAtMe) {
+		if nonGitHub {
+			return nil, "", fmt.Errorf("@me is only currently supported for GitHub hosts")
+		}
 		resolved, err := ghOwnerLookup()
 		if err != nil {
 			return nil, "", err
@@ -144,19 +162,33 @@ func resolveCloneTargets(
 		}
 		req.Owner = resolveOwnerAlias(req.Owner, envCfg.Aliases)
 		if strings.EqualFold(req.Owner, ownerAtMe) {
+			if nonGitHub {
+				return nil, "", fmt.Errorf(
+					"@me is only currently supported for GitHub hosts",
+				)
+			}
 			req.Owner, err = ghOwnerLookup()
 			if err != nil {
 				return nil, "", err
 			}
 		}
 		if req.Owner == "" {
-			if defaultOwner == "" {
-				defaultOwner, err = resolveDefaultOwner()
-				if err != nil {
-					return nil, "", err
-				}
+			defaultOwner, err = ensureDefaultOwner(defaultOwner, nonGitHub)
+			if err != nil {
+				return nil, "", err
 			}
 			req.Owner = defaultOwner
+		}
+		if req.Name == keywordAll && nonGitHub {
+			return nil, "", fmt.Errorf(
+				"%q is only currently supported for GitHub hosts",
+				keywordAll,
+			)
+		}
+		if req.PullRequest != "" && nonGitHub {
+			return nil, "", fmt.Errorf(
+				"PR references are only currently supported for GitHub hosts",
+			)
 		}
 		requests = append(requests, req)
 	}
@@ -302,6 +334,10 @@ func resolveCloneTargets(
 
 		slug := req.Owner + "/" + req.Name
 
+		if req.Host == "" {
+			req.Host = cli.forge.Host
+		}
+
 		target := CloneTarget{
 			BinGit:        cli.binGit,
 			BinJJ:         cli.binJJ,
@@ -316,7 +352,7 @@ func resolveCloneTargets(
 			RepoURL:       repoWebURL(req.Host, slug),
 			SingleBranch:  cli.Quick,
 			Slug:          slug,
-			Source:        resolveCloneSource(cli.Method, req),
+			Source:        resolveCloneSource(cli.Method, req, cli.forge),
 			VCS:           cli.VCS,
 		}
 
@@ -544,18 +580,15 @@ func prKey(req repoRequest) string {
 	return req.Owner + "/" + req.Name + "#" + req.PullRequest
 }
 
-func resolveCloneSource(method string, req repoRequest) string {
+func resolveCloneSource(method string, req repoRequest, forge forgeConfig) string {
 	if req.Source != "" {
 		return req.Source
 	}
-	return cloneURL(method, req.Owner, req.Name)
-}
-
-func cloneURL(method, owner, repo string) string {
+	scheme := schemeSSH
 	if method == methodHTTPS {
-		return fmt.Sprintf("https://github.com/%s/%s.git", owner, repo)
+		scheme = schemeHTTPS
 	}
-	return fmt.Sprintf("git@github.com:%s/%s.git", owner, repo)
+	return forgeSource(scheme, forge.Host, req.Owner+pathSep+req.Name, forge.GitSuffix)
 }
 
 func isValidRepoName(name string) bool {

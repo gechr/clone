@@ -44,6 +44,7 @@ go install github.com/gechr/clone@latest
 | `-Q`, `--quick`         | Shallow single-branch clone (`--depth=1 --single-branch`)                                                                               |
 | `--fetch`               | Fetch updates for existing clones instead of skipping                                                                                   |
 | `--method <type>`       | Clone method (`ssh`, `https`; default: `ssh`)                                                                                           |
+| `--forge <forge>`       | Forge for bare `owner/repo` args (`github`, `gitlab`, `sourcehut`, `codeberg`, `bitbucket`, or a hostname; default: `github`)            |
 | `--mirror`              | Create a [mirror](https://docs.github.com/en/repositories/creating-and-managing-repositories/duplicating-a-repository) clone (git only) |
 | `--vcs <type>`          | Version control system (`git`, `jj`; overrides `CLONE_VCS`)                                                                             |
 
@@ -65,6 +66,7 @@ go install github.com/gechr/clone@latest
 
 | Variable       | Description                                                       |
 | -------------- | ----------------------------------------------------------------- |
+| `CLONE_FORGE`  | Default forge, overridden by `--forge`                            |
 | `CLONE_METHOD` | Default clone method (`ssh` or `https`), overridden by `--method` |
 | `CLONE_OWNER`  | Default owner/organization, overridden by `--owner`               |
 | `CLONE_VCS`    | Default VCS (`git` or `jj`), overridden by `--vcs`                |

@@ -602,3 +602,155 @@ func TestPluralize(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveCloneTargetsForgeBareRepoUsesForgeHost(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:       "alice",
+		Repos:       []string{"repo"},
+		Method:      methodSSH,
+		VCS:         vcsGit,
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+		Forge:       forgeGitLab,
+	}
+	require.NoError(t, cli.Validate())
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.NoError(t, err)
+	require.Len(t, targets, 1)
+	require.Equal(t, "git@gitlab.com:alice/repo.git", targets[0].Source)
+	require.Equal(t, "https://gitlab.com/alice/repo", targets[0].RepoURL)
+}
+
+func TestResolveCloneTargetsForgeHTTPSMethod(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:       "alice",
+		Repos:       []string{"repo"},
+		Method:      methodHTTPS,
+		VCS:         vcsGit,
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+		Forge:       forgeCodeberg,
+	}
+	require.NoError(t, cli.Validate())
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.NoError(t, err)
+	require.Equal(t, "https://codeberg.org/alice/repo.git", targets[0].Source)
+}
+
+func TestResolveCloneTargetsForgeSourcehutNoGitSuffix(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:       "~alice",
+		Repos:       []string{"repo"},
+		Method:      methodSSH,
+		VCS:         vcsGit,
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+		Forge:       forgeSourcehut,
+	}
+	require.NoError(t, cli.Validate())
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.NoError(t, err)
+	require.Equal(t, "git@git.sr.ht:~alice/repo", targets[0].Source)
+}
+
+func TestResolveCloneTargetsForgeCustomHost(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:       "alice",
+		Repos:       []string{"repo"},
+		Method:      methodSSH,
+		VCS:         vcsGit,
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+		Forge:       "git.example.com",
+	}
+	require.NoError(t, cli.Validate())
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.NoError(t, err)
+	require.Equal(t, "git@git.example.com:alice/repo.git", targets[0].Source)
+	require.Equal(t, "https://git.example.com/alice/repo", targets[0].RepoURL)
+}
+
+func TestResolveCloneTargetsForgeURLArgOverridesForge(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:       []string{"https://github.com/owner/repo"},
+		Method:      methodSSH,
+		VCS:         vcsGit,
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+		Forge:       forgeGitLab,
+	}
+	require.NoError(t, cli.Validate())
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.NoError(t, err)
+	require.Equal(t, "https://github.com/owner/repo.git", targets[0].Source)
+	require.Equal(t, "https://github.com/owner/repo", targets[0].RepoURL)
+}
+
+func TestResolveCloneTargetsForgeRejectsAll(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:       "alice",
+		Repos:       []string{"all"},
+		Method:      methodSSH,
+		VCS:         vcsGit,
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+		Forge:       forgeGitLab,
+	}
+	require.NoError(t, cli.Validate())
+
+	_, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.EqualError(t, err, `"all" is only currently supported for GitHub hosts`)
+}
+
+func TestResolveCloneTargetsForgeRejectsPR(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:       "alice",
+		Repos:       []string{"owner/repo#21"},
+		Method:      methodSSH,
+		VCS:         vcsGit,
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+		Forge:       forgeGitLab,
+	}
+	require.NoError(t, cli.Validate())
+
+	_, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.EqualError(t, err, "PR references are only currently supported for GitHub hosts")
+}
+
+func TestResolveCloneTargetsForgeRejectsAtMe(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:       "@me",
+		Repos:       []string{"repo"},
+		Method:      methodSSH,
+		VCS:         vcsGit,
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+		Forge:       forgeGitLab,
+	}
+	require.NoError(t, cli.Validate())
+
+	_, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.EqualError(t, err, "@me is only currently supported for GitHub hosts")
+}

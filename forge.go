@@ -7,6 +7,45 @@ import (
 	"strings"
 )
 
+// forgeConfig describes how to construct clone URLs for a given forge.
+type forgeConfig struct {
+	Name      string
+	Host      string
+	GitSuffix bool
+}
+
+var forgeRegistry = map[string]forgeConfig{
+	forgeBitbucket: {Name: forgeBitbucket, Host: hostBitbucket, GitSuffix: true},
+	forgeCodeberg:  {Name: forgeCodeberg, Host: hostCodeberg, GitSuffix: true},
+	forgeGitHub:    {Name: forgeGitHub, Host: hostGitHub, GitSuffix: true},
+	forgeGitLab:    {Name: forgeGitLab, Host: hostGitLab, GitSuffix: true},
+	forgeSourcehut: {Name: forgeSourcehut, Host: hostSourcehut, GitSuffix: false},
+}
+
+// resolveForge resolves a forge identifier (enum name or hostname) to its
+// config. An empty value defaults to GitHub.
+func resolveForge(value string) (forgeConfig, error) {
+	v := strings.ToLower(strings.TrimSpace(value))
+	if v == "" {
+		return forgeRegistry[forgeGitHub], nil
+	}
+	if cfg, ok := forgeRegistry[v]; ok {
+		return cfg, nil
+	}
+	for _, cfg := range forgeRegistry {
+		if cfg.Host == v {
+			return cfg, nil
+		}
+	}
+	if strings.Contains(v, ".") {
+		return forgeConfig{Name: v, Host: v, GitSuffix: true}, nil
+	}
+	return forgeConfig{}, fmt.Errorf(
+		"invalid forge %q: expected one of bitbucket, codeberg, github, gitlab, sourcehut, or a hostname",
+		value,
+	)
+}
+
 // parseForgeURL attempts to parse a full URL (HTTPS, SSH, or bare hostname)
 // into a repoRequest. It dispatches to per-forge extractors based on the
 // hostname.
