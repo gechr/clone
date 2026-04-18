@@ -206,6 +206,49 @@ func TestCLIValidateForgeRejectsGitHubOnlyFlags(t *testing.T) {
 	}
 }
 
+func TestCLIValidateRejectsPullWithMirror(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:       []string{"owner/repo"},
+		Pull:        true,
+		Mirror:      true,
+		VCS:         vcsGit,
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+	}
+
+	require.EqualError(t, cli.Validate(), "--pull and --mirror can't be used together")
+}
+
+func TestCLIValidateAcceptsPullWithFetch(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:       []string{"owner/repo"},
+		Pull:        true,
+		Fetch:       true,
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+	}
+
+	require.NoError(t, cli.Validate())
+}
+
+func TestCLIValidateAcceptsPullWithForce(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:       []string{"owner/repo"},
+		Pull:        true,
+		Force:       true,
+		Visibility:  keywordAll,
+		Parallelism: defaultParallelism,
+	}
+
+	require.NoError(t, cli.Validate())
+}
+
 func TestCLIValidateFetchAlone(t *testing.T) {
 	t.Parallel()
 

@@ -190,7 +190,7 @@ func TestClonerDryRunCommand(t *testing.T) {
 				Dest:   "repo",
 				VCS:    vcsJJ,
 			}),
-			want: "git clone git@github.com:owner/repo.git repo\n" +
+			want: "git clone git@github.com:owner/repo.git repo && " +
 				"jj git init --color=never --colocate repo",
 		},
 		{
@@ -204,8 +204,8 @@ func TestClonerDryRunCommand(t *testing.T) {
 				PullRequest: "21",
 				PRHeadRef:   "feature-branch",
 			},
-			want: "git clone git@github.com:owner/repo.git repo\n" +
-				"git -C repo fetch origin refs/pull/21/head:feature-branch --no-tags\n" +
+			want: "git clone git@github.com:owner/repo.git repo && " +
+				"git -C repo fetch origin refs/pull/21/head:feature-branch --no-tags && " +
 				"git -C repo checkout feature-branch",
 		},
 		{
@@ -220,10 +220,10 @@ func TestClonerDryRunCommand(t *testing.T) {
 				PullRequest: "21",
 				PRHeadRef:   "feature-branch",
 			},
-			want: "git clone git@github.com:owner/repo.git repo\n" +
-				"jj git init --color=never --colocate repo\n" +
-				"git -C repo fetch origin refs/pull/21/head:feature-branch --no-tags\n" +
-				"jj -R repo git import\n" +
+			want: "git clone git@github.com:owner/repo.git repo && " +
+				"jj git init --color=never --colocate repo && " +
+				"git -C repo fetch origin refs/pull/21/head:feature-branch --no-tags && " +
+				"jj -R repo git import && " +
 				"jj -R repo new feature-branch",
 		},
 	}
@@ -248,7 +248,7 @@ func TestNewFetcher(t *testing.T) {
 		Label:   "owner/repo",
 		RepoURL: "https://github.com/owner/repo",
 		VCS:     vcsGit,
-	})
+	}, false, false)
 	require.NotNil(t, fetcher)
 	require.Equal(t, "git", fetcher.BinGit)
 	require.Equal(t, "jj", fetcher.BinJJ)
@@ -263,6 +263,37 @@ func TestFetcherGitFetchArgs(t *testing.T) {
 	fetcher := &Fetcher{BinGit: "git", Dest: "repo", VCS: vcsGit}
 
 	require.Equal(t, []string{"-C", "repo", "fetch", "--progress"}, fetcher.gitFetchArgs(true))
+	require.Equal(t, []string{"-C", "repo", "fetch"}, fetcher.gitFetchArgs(false))
+}
+
+func TestFetcherGitPullArgs(t *testing.T) {
+	t.Parallel()
+
+	fetcher := &Fetcher{BinGit: "git", Dest: "repo", VCS: vcsGit, Pull: true}
+	require.Equal(
+		t,
+		[]string{"-C", "repo", "pull", "--rebase", "--progress"},
+		fetcher.gitFetchArgs(true),
+	)
+	require.Equal(t, []string{"-C", "repo", "pull", "--rebase"}, fetcher.gitFetchArgs(false))
+}
+
+func TestFetcherGitPullForceArgs(t *testing.T) {
+	t.Parallel()
+
+	fetcher := &Fetcher{BinGit: "git", Dest: "repo", VCS: vcsGit, Pull: true, Force: true}
+	require.Equal(
+		t,
+		[]string{"-C", "repo", "pull", "--rebase", "--force"},
+		fetcher.gitFetchArgs(false),
+	)
+}
+
+func TestFetcherJJPullStillUsesFetch(t *testing.T) {
+	t.Parallel()
+
+	// For jj-colocated repos, --pull collapses to --fetch behavior.
+	fetcher := &Fetcher{BinGit: "git", Dest: "repo", VCS: vcsJJ, Pull: true, Force: true}
 	require.Equal(t, []string{"-C", "repo", "fetch"}, fetcher.gitFetchArgs(false))
 }
 
@@ -282,7 +313,7 @@ func TestFetcherDryRunCommand(t *testing.T) {
 		{
 			name:    "jj",
 			fetcher: &Fetcher{BinGit: "git", BinJJ: "jj", Dest: "repo", VCS: vcsJJ},
-			want:    "git -C repo fetch\njj -R repo git import --quiet",
+			want:    "git -C repo fetch && jj -R repo git import --quiet",
 		},
 	}
 
@@ -317,7 +348,7 @@ func TestPrepareClonersWithFetch(t *testing.T) {
 		},
 	}
 
-	cloners, fetchers, err := prepareCloners(targets, false, false, false, true)
+	cloners, fetchers, err := prepareCloners(targets, false, false, false, true, false)
 	require.NoError(t, err)
 	require.Len(t, cloners, 1)
 	require.Equal(t, "owner/new-repo", cloners[0].Slug)
@@ -389,7 +420,7 @@ func TestPrepareClonersWithoutFetch(t *testing.T) {
 		},
 	}
 
-	cloners, fetchers, err := prepareCloners(targets, false, false, false, false)
+	cloners, fetchers, err := prepareCloners(targets, false, false, false, false, false)
 	require.NoError(t, err)
 	require.Len(t, cloners, 1)
 	require.Equal(t, "owner/new-repo", cloners[0].Slug)

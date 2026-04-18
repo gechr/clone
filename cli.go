@@ -55,21 +55,22 @@ type CLI struct {
 	Depth       int    `name:"depth"       help:"Create a shallow clone of the given depth"             short:"D"                    placeholder:"<n>"      clib:"terse='Depth',group='Options/1'"                         xor:"shallow"`
 	Quick       bool   "name:\"quick\"     help:\"Shallow single-branch clone (alias for `--depth=1 --single-branch`)\" short:\"Q\"                                         clib:\"terse='Quick clone',group='Options/1'\"                 xor:\"shallow\""
 	Method      string `name:"method"      help:"Clone method"                                          short:"m"                    placeholder:"<method>" clib:"terse='Clone method',enum='ssh,https',group='Options/1'"                 default:"ssh" enum:"ssh,https,http" env:"CLONE_METHOD"`
-	Forge       string `name:"forge"       help:"Forge to use for bare owner/repo arguments"                                         placeholder:"<forge>"  clib:"terse='Forge',group='Options/1'"`
 	Mirror      bool   `name:"mirror"      help:"Create a mirror clone"                                                                                     clib:"terse='Mirror clone',group='Options/1'"                  xor:"fetch"`
-	VCS         string `name:"vcs"         help:"Version control system"                                                             placeholder:"<vcs>"    clib:"terse='VCS',group='Options/1'"`
-	JJ          bool   "name:\"jj\"        help:\"Clone with `jj` (alias for `--vcs=jj`)\"                                                                                  clib:\"terse='Jujutsu',group='Options/1'\"                                                                                        xor:\"vcs\""
-	Git         bool   "name:\"git\"       help:\"Clone with `git` (alias for `--vcs=git`)\"                                                                                clib:\"terse='Git',group='Options/1'\"                                                                                            xor:\"vcs\""
-	Directory   string `name:"directory"   help:"Clone into a specific directory"                       short:"d" aliases:"dir"      placeholder:"<path>"   clib:"terse='Directory',group='Options/2'"                     xor:"location"                                                         type:"path"`
-	Temp        bool   `name:"temp"        help:"Clone into a temporary directory"                      short:"T"                                           clib:"terse='Temporary directory',group='Options/2'"           xor:"location"`
-	Print       bool   "name:\"print\"     help:\"Print temp directory path to stdout (requires `--temp`; implies `--quiet`)\"                                              clib:\"terse='Print temp path',group='Options/2'\""
-	Fetch       bool   `name:"fetch"       help:"Fetch updates for existing clones instead of skipping"                                                     clib:"terse='Fetch existing',group='Options/3'"                xor:"fetch"`
-	Force       bool   `name:"force"       help:"Overwrite existing clones"                             short:"f"                                           clib:"terse='Force overwrite',group='Options/3'"               xor:"fetch"`
-	Dry         bool   `name:"dry"         help:"Show what would be cloned without cloning"             short:"n" aliases:"dry-run"                         clib:"terse='Dry run',group='Options/3'"`
-	Parallelism int    `name:"parallelism" help:"Number of parallel clones"                             short:"P"                    placeholder:"<n>"      clib:"terse='Parallelism',group='Options/3'"                                   default:"20"`
-	Quiet       bool   `name:"quiet"       help:"Suppress informational output"                         short:"q"                                           clib:"terse='Quiet',group='Options/4'"                         xor:"verbosity"`
-	Verbose     bool   `name:"verbose"     help:"Show additional progress information"                  short:"v"                                           clib:"terse='Verbose',group='Options/4'"                       xor:"verbosity"`
-	Debug       bool   `name:"debug"       help:"Show debug logs"                                                                                           clib:"terse='Debug logs',group='Options/4'"                    xor:"verbosity"`
+	Forge       string `name:"forge"       help:"Forge to use for bare owner/repo arguments"                                         placeholder:"<forge>"  clib:"terse='Forge',group='Options/2'"`
+	VCS         string `name:"vcs"         help:"Version control system"                                                             placeholder:"<vcs>"    clib:"terse='VCS',group='Options/2'"`
+	JJ          bool   "name:\"jj\"        help:\"Clone with `jj` (alias for `--vcs=jj`)\"                                                                                  clib:\"terse='Jujutsu',group='Options/2'\"                                                                                        xor:\"vcs\""
+	Git         bool   "name:\"git\"       help:\"Clone with `git` (alias for `--vcs=git`)\"                                                                                clib:\"terse='Git',group='Options/2'\"                                                                                            xor:\"vcs\""
+	Directory   string `name:"directory"   help:"Clone into a specific directory"                       short:"d" aliases:"dir"      placeholder:"<path>"   clib:"terse='Directory',group='Options/3'"                     xor:"location"                                                         type:"path"`
+	Temp        bool   `name:"temp"        help:"Clone into a temporary directory"                      short:"T"                                           clib:"terse='Temporary directory',group='Options/3'"           xor:"location"`
+	Print       bool   "name:\"print\"     help:\"Print temp directory path to stdout (requires `--temp`; implies `--quiet`)\"                                              clib:\"terse='Print temp path',group='Options/3'\""
+	Fetch       bool   `name:"fetch"       help:"Fetch updates for existing clones instead of skipping"                                                     clib:"terse='Fetch existing',group='Options/4'"                xor:"fetch"`
+	Pull        bool   `name:"pull"        help:"Pull updates for existing clones"                                                                          clib:"terse='Pull existing',group='Options/4'"`
+	Force       bool   `name:"force"       help:"Overwrite existing clones"                             short:"f"                                           clib:"terse='Force overwrite',group='Options/4'"               xor:"fetch"`
+	Dry         bool   `name:"dry"         help:"Show what would be cloned without cloning"             short:"n" aliases:"dry-run"                         clib:"terse='Dry run',group='Options/4'"`
+	Parallelism int    `name:"parallelism" help:"Number of parallel clones"                             short:"P"                    placeholder:"<n>"      clib:"terse='Parallelism',group='Options/4'"                                   default:"20"`
+	Quiet       bool   `name:"quiet"       help:"Suppress informational output"                         short:"q"                                           clib:"terse='Quiet',group='Options/5'"                         xor:"verbosity"`
+	Verbose     bool   `name:"verbose"     help:"Show additional progress information"                  short:"v"                                           clib:"terse='Verbose',group='Options/5'"                       xor:"verbosity"`
+	Debug       bool   `name:"debug"       help:"Show debug logs"                                                                                           clib:"terse='Debug logs',group='Options/5'"                    xor:"verbosity"`
 
 	Color   clog.ColorMode `name:"color"   help:"When to use color" clib:"terse='Color mode',group='Miscellaneous/1'" default:"auto" enum:"auto,always,never"`
 	Version bool           `name:"version" help:"Print version"     clib:"terse='Version',group='Miscellaneous/3'"                                            short:"V"`
@@ -166,6 +167,9 @@ func (c *CLI) Validate() error {
 	}
 	if c.Mirror && c.VCS == vcsJJ {
 		return fmt.Errorf("--mirror is not supported with jj (use --vcs=git)")
+	}
+	if c.Pull && c.Mirror {
+		return fmt.Errorf("--pull and --mirror can't be used together")
 	}
 	forge, err := resolveForge(c.Forge)
 	if err != nil {

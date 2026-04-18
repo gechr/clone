@@ -202,5 +202,5 @@ func TestConfigureClogWritesErrorsToStderr(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Empty(t, stdout)
-	assert.Contains(t, string(stderr), "✘ boom")
+	assert.Equal(t, "✘ boom\n", string(stderr))
 }

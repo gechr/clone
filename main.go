@@ -88,14 +88,16 @@ func configureClog() {
 	})
 
 	green := new(lipgloss.NewStyle().Foreground(lipgloss.Color("2")))
+	yellow := new(lipgloss.NewStyle().Foreground(lipgloss.Color("3")))
 	clog.SetStyles(&style.Config{
 		Message: new(lipgloss.NewStyle().Bold(true)),
 		Messages: style.LevelMap{
 			clog.LevelInfo:  green,
 			LevelSuccess:    green,
-			clog.LevelWarn:  new(lipgloss.NewStyle().Foreground(lipgloss.Color("3"))),
+			clog.LevelWarn:  yellow,
 			clog.LevelError: new(lipgloss.NewStyle().Foreground(lipgloss.Color("1"))),
 			clog.LevelFatal: new(lipgloss.NewStyle()),
+			clog.LevelDry:   yellow,
 		},
 		Symbols: style.LevelMap{
 			clog.LevelInfo:  new(lipgloss.NewStyle().Foreground(lipgloss.Color("3"))),
@@ -152,7 +154,10 @@ func run() error {
 		return envErr
 	}
 
-	binGit, binJJ, depsErr := checkDeps(envCfg, cli.VCS)
+	// Resolve jj eagerly when updating existing clones, since a mixed set
+	// may contain jj-colocated dirs even if --vcs=git is chosen.
+	needJJ := cli.VCS == vcsJJ || cli.Fetch || cli.Pull
+	binGit, binJJ, depsErr := checkDeps(envCfg, needJJ)
 	if depsErr != nil {
 		clog.Error().Msg(depsErr.Error())
 		return errSilent
@@ -236,13 +241,13 @@ func (f lazyRepoLister) ResolvePR(owner, repo string, number int) (prInfo, error
 	return lister.ResolvePR(owner, repo, number)
 }
 
-func checkDeps(cfg envConfig, vcs string) (string, string, error) {
+func checkDeps(cfg envConfig, needJJ bool) (string, string, error) {
 	binGit, err := resolveBinPath(cfg.BinGit, "CLONE_BIN_GIT", nameGit)
 	if err != nil {
 		return "", "", err
 	}
 	var binJJ string
-	if vcs == vcsJJ {
+	if needJJ {
 		binJJ, err = resolveBinPath(cfg.BinJJ, "CLONE_BIN_JJ", nameJJ)
 		if err != nil {
 			return "", "", err

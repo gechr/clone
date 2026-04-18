@@ -38,7 +38,9 @@ type Fetcher struct {
 	BinGit  string
 	BinJJ   string
 	Dest    string
+	Force   bool
 	Label   string
+	Pull    bool
 	RepoURL string
 	Slug    string
 	VCS     string
@@ -47,12 +49,14 @@ type Fetcher struct {
 	Err  error
 }
 
-func NewFetcher(target CloneTarget) *Fetcher {
+func NewFetcher(target CloneTarget, pull, force bool) *Fetcher {
 	return &Fetcher{
 		BinGit:  target.BinGit,
 		BinJJ:   target.BinJJ,
 		Dest:    target.Dest,
+		Force:   force,
 		Label:   target.Label,
+		Pull:    pull,
 		RepoURL: target.RepoURL,
 		Slug:    target.Slug,
 		VCS:     target.VCS,
@@ -375,7 +379,14 @@ func logFetchResult(all, failed []*Fetcher) {
 }
 
 func executeClones(ctx context.Context, cli *CLI, baseDir string, targets []CloneTarget) error {
-	cloners, fetchers, err := prepareCloners(targets, !cli.Quiet, !cli.Dry, cli.Force, cli.Fetch)
+	cloners, fetchers, err := prepareCloners(
+		targets,
+		!cli.Quiet,
+		!cli.Dry,
+		cli.Force,
+		cli.Fetch || cli.Pull,
+		cli.Pull,
+	)
 	if err != nil {
 		return err
 	}
@@ -421,6 +432,7 @@ func prepareCloners(
 	createParents bool,
 	force bool,
 	fetch bool,
+	pull bool,
 ) ([]*Cloner, []*Fetcher, error) {
 	cloners := make([]*Cloner, 0, len(targets))
 	var fetchers []*Fetcher
@@ -436,7 +448,8 @@ func prepareCloners(
 			return nil, nil, err
 		}
 		if exists && fetch {
-			fetchers = append(fetchers, NewFetcher(target))
+			target.VCS = detectVCS(target.Dest, target.VCS)
+			fetchers = append(fetchers, NewFetcher(target, pull, pull && force))
 			continue
 		}
 		if exists && !force {
@@ -762,16 +775,6 @@ func (c *Cloner) runGitClone(
 	return nil
 }
 
-func runCommandInDir(ctx context.Context, dir, bin string, args []string) error {
-	cmd := exec.CommandContext(ctx, bin, args...)
-	cmd.Dir = dir
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return formatCloneError(err, strings.TrimSpace(string(output)))
-	}
-	return nil
-}
-
 func (c *Cloner) gitCloneArgs(includeProgress bool) []string {
 	args := []string{"clone"}
 	if includeProgress {
@@ -798,34 +801,37 @@ func (c *Cloner) jjInitArgs() []string {
 }
 
 func (c *Cloner) DryRunCommand() string {
-	lines := []string{formatCommand(c.BinGit, c.gitCloneArgs(false))}
+	lines := []string{formatCommand(c.BinGit, c.gitCloneArgs(false), true)}
 
 	if c.VCS == vcsJJ {
 		jjArgs := c.jjInitArgs()
 		jjArgs[len(jjArgs)-1] = c.Dest
-		lines = append(lines, formatCommand(c.BinJJ, jjArgs))
+		lines = append(lines, formatCommand(c.BinJJ, jjArgs, true))
 	}
 
 	if c.PullRequest != "" && c.PRHeadRef != "" {
 		prRef := fmt.Sprintf("refs/pull/%s/head:%s", c.PullRequest, c.PRHeadRef)
 		lines = append(lines, formatCommand(c.BinGit, []string{
 			"-C", c.Dest, "fetch", "origin", prRef, "--no-tags",
-		}))
+		}, true))
 		if c.VCS == vcsJJ {
-			lines = append(lines, formatCommand(c.BinJJ, []string{"-R", c.Dest, "git", "import"}))
 			lines = append(
 				lines,
-				formatCommand(c.BinJJ, []string{"-R", c.Dest, "new", c.PRHeadRef}),
+				formatCommand(c.BinJJ, []string{"-R", c.Dest, "git", "import"}, true),
+			)
+			lines = append(
+				lines,
+				formatCommand(c.BinJJ, []string{"-R", c.Dest, "new", c.PRHeadRef}, true),
 			)
 		} else {
 			lines = append(
 				lines,
-				formatCommand(c.BinGit, []string{"-C", c.Dest, "checkout", c.PRHeadRef}),
+				formatCommand(c.BinGit, []string{"-C", c.Dest, "checkout", c.PRHeadRef}, true),
 			)
 		}
 	}
 
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, " && ")
 }
 
 func (f *Fetcher) Run(
@@ -919,6 +925,12 @@ func (f *Fetcher) runJJFetch(
 
 func (f *Fetcher) gitFetchArgs(includeProgress bool) []string {
 	args := []string{"-C", f.Dest, "fetch"}
+	if f.Pull && f.VCS != vcsJJ {
+		args = []string{"-C", f.Dest, "pull", "--rebase"}
+		if f.Force {
+			args = append(args, "--force")
+		}
+	}
 	if includeProgress {
 		args = append(args, "--progress")
 	}
@@ -930,11 +942,11 @@ func (f *Fetcher) jjImportArgs() []string {
 }
 
 func (f *Fetcher) DryRunCommand() string {
-	lines := []string{formatCommand(f.BinGit, f.gitFetchArgs(false))}
+	lines := []string{formatCommand(f.BinGit, f.gitFetchArgs(false), true)}
 	if f.VCS == vcsJJ {
-		lines = append(lines, formatCommand(f.BinJJ, f.jjImportArgs()))
+		lines = append(lines, formatCommand(f.BinJJ, f.jjImportArgs(), true))
 	}
-	return strings.Join(lines, "\n")
+	return strings.Join(lines, " && ")
 }
 
 func cleanupIncompleteClones(cloners []*Cloner) {
@@ -953,39 +965,8 @@ func ensureCloneParent(dest string) error {
 	return os.MkdirAll(parent, 0o755)
 }
 
-func pathExists(path string) (bool, error) {
-	_, err := os.Stat(path)
-	switch {
-	case err == nil:
-		return true, nil
-	case errors.Is(err, os.ErrNotExist):
-		return false, nil
-	default:
-		return false, err
-	}
-}
-
-func shellQuote(value string) string {
-	if value == "" {
-		return "''"
-	}
-	if !strings.ContainsAny(value, " \t\n'\"\\$") {
-		return value
-	}
-	return "'" + strings.ReplaceAll(value, "'", "'\"'\"'") + "'"
-}
-
-func formatCommand(bin string, args []string) string {
-	parts := make([]string, 0, len(args)+1)
-	parts = append(parts, shellQuote(bin))
-	for _, arg := range args {
-		parts = append(parts, shellQuote(arg))
-	}
-	return strings.Join(parts, " ")
-}
-
 func formatCloneError(err error, stderrText string) error {
-	if msg := classifyCloneError(stderrText); msg != "" {
+	if msg := knownError(stderrText); msg != "" {
 		return errors.New(msg)
 	}
 	details := compactLines(stderrText)
@@ -995,7 +976,7 @@ func formatCloneError(err error, stderrText string) error {
 	return err
 }
 
-func classifyCloneError(text string) string {
+func knownError(text string) string {
 	lower := strings.ToLower(text)
 	switch {
 	case strings.Contains(lower, "repository not found"),
@@ -1010,22 +991,4 @@ func classifyCloneError(text string) string {
 	default:
 		return ""
 	}
-}
-
-func compactLines(text string) string {
-	lines := strings.Split(text, "\n")
-	parts := make([]string, 0, len(lines))
-	seen := make(map[string]struct{}, len(lines))
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		if _, ok := seen[line]; ok {
-			continue
-		}
-		seen[line] = struct{}{}
-		parts = append(parts, line)
-	}
-	return strings.Join(parts, " | ")
 }

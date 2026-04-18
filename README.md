@@ -43,6 +43,7 @@ go install github.com/gechr/clone@latest
 | `-D`, `--depth <n>`     | Create a shallow clone of the given depth                                                                                               |
 | `-Q`, `--quick`         | Shallow single-branch clone (`--depth=1 --single-branch`)                                                                               |
 | `--fetch`               | Fetch updates for existing clones instead of skipping                                                                                   |
+| `--pull`                | Pull updates for existing clones (`git pull --rebase`; `jj` behaves like `--fetch`). Combine with `--force` for `--rebase --force`      |
 | `--method <type>`       | Clone method (`ssh`, `https`; default: `ssh`)                                                                                           |
 | `--forge <forge>`       | Forge for bare `owner/repo` args (`github`, `gitlab`, `sourcehut`, `codeberg`, `bitbucket`, or a hostname; default: `github`)            |
 | `--mirror`              | Create a [mirror](https://docs.github.com/en/repositories/creating-and-managing-repositories/duplicating-a-repository) clone (git only) |
