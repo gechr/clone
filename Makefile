@@ -18,8 +18,8 @@ DIST_DIR ?= dist
 
 .PHONY: demo
 demo:
-	@vhs demo/demo.tape > /dev/null
-	@vhs demo/help.tape > /dev/null
+	@vhs assets/demo.tape > /dev/null
+	@vhs assets/help.tape > /dev/null
 
 .PHONY: build
 build:

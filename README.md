@@ -2,7 +2,7 @@
 
 Clone GitHub repositories in parallel.
 
-![demo](demo/demo.gif)
+![demo](assets/demo.gif)
 
 ## Install
 
@@ -18,7 +18,7 @@ go install github.com/gechr/clone@latest
 
 ## Usage
 
-![help](demo/help.png)
+![help](assets/help.png)
 
 ### Filters
 

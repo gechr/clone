@@ -37,9 +37,7 @@ type CLI struct {
 
 	Repos []string `name:"repo" help:"Repositories to clone." arg:"" optional:""`
 
-	Owner    string `name:"owner"    help:"GitHub owner/organization"              short:"O" aliases:"org,organization" placeholder:"<owner>" clib:"terse='Owner/org',group='Filters/1'" env:"CLONE_OWNER"`
-	Starred  bool   `name:"starred"  help:"Clone repositories starred by the user"                                                            clib:"terse='Starred',group='Filters/1'"`
-	Watching bool   `name:"watching" help:"Clone repositories watched by the user"                                                            clib:"terse='Watching',group='Filters/1'"`
+	Owner string `name:"owner"    help:"GitHub owner/organization"              short:"O" aliases:"org,organization" placeholder:"<owner>" clib:"terse='Owner/org',group='Filters/1'" env:"CLONE_OWNER"`
 
 	Archived   bool     `name:"archived"   help:"Include archived repositories"   aliases:"archive,archives" clib:"terse='Include archived',group='Filters/2'"`
 	Forked     bool     `name:"forked"     help:"Include forked repositories"     aliases:"fork,forks"       clib:"terse='Include forked',group='Filters/2'"`
@@ -48,11 +46,14 @@ type CLI struct {
 	Stars      string   "name:\"stars\"     help:\"Filter by star count (e.g. `5`, `>=5`, `<10`, `5..50`)\"                      clib:\"terse='Stars',group='Filters/2'\"                   placeholder:\"<expr>\""
 	Visibility string   `name:"visibility" help:"Filter by visibility"            aliases:"viz"              clib:"terse='Visibility',group='Filters/2'"                 placeholder:"<viz>"   default:"all" enum:"all,public,private,internal"`
 
-	IncludePatterns []string `name:"include-pattern" help:"Only clone repositories matching regex (repeatable)" short:"i" placeholder:"<regex>" clib:"hide-long,terse='Include (regex)',group='Filters/3'"`
-	Includes        []string `name:"include"         help:"Only clone repositories by exact name (repeatable)"            placeholder:"<name>"  clib:"no-indent,terse='Include',group='Filters/3'"`
+	Starred  bool `name:"starred"  help:"Clone repositories starred by the user"                                                            clib:"terse='Starred',group='Filters/3'"`
+	Watching bool `name:"watching" help:"Clone repositories watched by the user"                                                            clib:"terse='Watching',group='Filters/3'"`
 
-	ExcludePatterns []string `name:"exclude-pattern" help:"Skip repositories matching regex (repeatable)" short:"e" placeholder:"<regex>" clib:"hide-long,terse='Exclude (regex)',group='Filters/4'"`
-	Excludes        []string `name:"exclude"         help:"Skip repositories by exact name (repeatable)"            placeholder:"<name>"  clib:"no-indent,terse='Exclude',group='Filters/4'"`
+	IncludePatterns []string `name:"include-pattern" help:"Only clone repositories matching regex (repeatable)" short:"i" placeholder:"<regex>" clib:"hide-long,terse='Include (regex)',group='Filters/4'"`
+	Includes        []string `name:"include"         help:"Only clone repositories by exact name (repeatable)"            placeholder:"<name>"  clib:"no-indent,terse='Include',group='Filters/4'"`
+
+	ExcludePatterns []string `name:"exclude-pattern" help:"Skip repositories matching regex (repeatable)" short:"e" placeholder:"<regex>" clib:"hide-long,terse='Exclude (regex)',group='Filters/5'"`
+	Excludes        []string `name:"exclude"         help:"Skip repositories by exact name (repeatable)"            placeholder:"<name>"  clib:"no-indent,terse='Exclude',group='Filters/5'"`
 
 	Branch      string `name:"branch"      help:"Clone a specific branch"                               short:"b" aliases:"bookmark" placeholder:"<name>"   clib:"terse='Branch',group='Options/1'"`
 	Depth       int    `name:"depth"       help:"Create a shallow clone of the given depth"             short:"D"                    placeholder:"<n>"      clib:"terse='Depth',group='Options/1'"                         xor:"shallow"`
