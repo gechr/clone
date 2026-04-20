@@ -13,7 +13,9 @@ concurrency:
 
 jobs:
   verify-tag:
-    uses: gechr/actions/.github/workflows/verify-tag.yaml@b5afcb5e5cb47cf5b5ede19e98710e0c76c9e058 # v0.0.2
+    permissions:
+      contents: read
+    uses: gechr/actions/.github/workflows/verify-tag.yaml@d312df23aa0a2e809547cf08034ee3522ddd6be9 # v0.0.3
 
   publish:
     needs: verify-tag
