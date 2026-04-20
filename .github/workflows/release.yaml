@@ -13,34 +13,7 @@ concurrency:
 
 jobs:
   verify-tag:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Import GPG keys and verify tag
-        run: |
-          # Fetch keys; import only the first key
-          KEYS_JSON=$(curl -sf https://api.github.com/users/gechr/gpg_keys)
-          echo "$KEYS_JSON" | jq -r '.[0].raw_key' | gpg --quiet --import
-          ALLOWED_FINGERPRINT=$(gpg --list-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')
-
-          # Verify the tag signature
-          TAG="${GITHUB_REF_NAME}"
-          GPG_OUTPUT=$(git verify-tag --raw "$TAG" 2>&1 || true)
-          SIGNING_FINGERPRINT=$(echo "$GPG_OUTPUT" | awk '/VALIDSIG/ {print $3}')
-          SIGNER_NAME=$(echo "$GPG_OUTPUT" | awk '/GOODSIG/ {$1=$2=$3=""; print substr($0,4)}')
-
-          if [[ "$SIGNING_FINGERPRINT" != "$ALLOWED_FINGERPRINT" ]]; then
-            echo "::error::Tag $TAG is signed with unauthorized key: $SIGNING_FINGERPRINT (expected: $ALLOWED_FINGERPRINT)"
-            exit 1
-          fi
-
-          echo "Verified tag [$TAG] - signer: $SIGNER_NAME"
+    uses: gechr/actions/.github/workflows/verify-tag.yaml@b5afcb5e5cb47cf5b5ede19e98710e0c76c9e058 # v0.0.2
 
   publish:
     needs: verify-tag
