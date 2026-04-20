@@ -122,6 +122,21 @@ func (c *CLI) Normalize() {
 	}
 }
 
+func (c *CLI) hasRepoSelector() bool {
+	switch {
+	case len(c.Repos) > 0,
+		len(c.Languages) > 0,
+		len(c.Topics) > 0,
+		c.StarsFilter.present(),
+		c.Starred,
+		c.Watching,
+		c.Owner != "",
+		c.Visibility != keywordAll:
+		return true
+	}
+	return false
+}
+
 func (c *CLI) validateStarsFilter() error {
 	if c.Stars == "" {
 		return nil
@@ -162,8 +177,7 @@ func (c *CLI) Validate() error {
 	if starsErr := c.validateStarsFilter(); starsErr != nil {
 		return starsErr
 	}
-	if len(c.Repos) == 0 && len(c.Languages) == 0 && len(c.Topics) == 0 &&
-		!c.StarsFilter.present() && !c.Starred && !c.Watching && c.Owner == "" {
+	if !c.hasRepoSelector() {
 		return fmt.Errorf("at least one repository is required")
 	}
 	if c.Print && !c.Temp {
