@@ -117,7 +117,7 @@ func run() error {
 	cli := CLI{}
 	parser := buildParser(&cli)
 
-	_, parseErr := parser.Parse(os.Args[1:])
+	parseErr := parseArgs(parser, os.Args[1:])
 
 	flags, flagsErr := clib.Reflect(&cli)
 	if flagsErr != nil {

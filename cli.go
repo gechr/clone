@@ -61,7 +61,7 @@ type CLI struct {
 	Method      string `name:"method"      help:"Clone method"                                          short:"m"                    placeholder:"<method>" clib:"terse='Clone method',enum='ssh,https',group='Options/1'"                 default:"ssh" enum:"ssh,https,http" env:"CLONE_METHOD"`
 	Mirror      bool   `name:"mirror"      help:"Create a mirror clone"                                                                                     clib:"terse='Mirror clone',group='Options/1'"                  xor:"fetch"`
 	Forge       string `name:"forge"       help:"Forge to use for bare owner/repo arguments"                                         placeholder:"<forge>"  clib:"terse='Forge',group='Options/2'"`
-	VCS         string `name:"vcs"         help:"Version control system"                                                             placeholder:"<vcs>"    clib:"terse='VCS',group='Options/2'"`
+	VCS         string `name:"vcs"         help:"Version control system"                                                             placeholder:"<vcs>"    clib:"terse='VCS',enum='git,jj',group='Options/2'"                             default:"git" enum:"git,jj"`
 	JJ          bool   "name:\"jj\"        help:\"Clone with `jj` (alias for `--vcs=jj`)\"                                                                                  clib:\"terse='Jujutsu',group='Options/2'\"                                                                                        xor:\"vcs\""
 	Git         bool   "name:\"git\"       help:\"Clone with `git` (alias for `--vcs=git`)\"                                                                                clib:\"terse='Git',group='Options/2'\"                                                                                            xor:\"vcs\""
 	Directory   string `name:"directory"   help:"Clone into a specific directory"                       short:"d" aliases:"dir"      placeholder:"<path>"   clib:"terse='Directory',group='Options/3'"                     xor:"location"                                                         type:"path"`
@@ -108,11 +108,7 @@ func (c *CLI) Normalize() {
 	case c.JJ:
 		c.VCS = vcsJJ
 	case c.VCS == "":
-		if v := envLower(envCloneVCS); v != "" {
-			c.VCS = v
-		} else {
-			c.VCS = vcsGit
-		}
+		c.VCS = vcsGit
 	}
 	c.Languages = uniqueFold(c.Languages)
 	if c.Quick && c.Depth == 0 {
@@ -141,13 +137,6 @@ func (c *CLI) validateStarsFilter() error {
 func (c *CLI) Validate() error {
 	if c.Version {
 		return nil
-	}
-	if c.VCS != "" && (c.Git || c.JJ) {
-		flag := nameGit
-		if c.JJ {
-			flag = nameJJ
-		}
-		return fmt.Errorf("--%s and --vcs can't be used together", flag)
 	}
 	c.Normalize()
 	if c.VCS != vcsGit && c.VCS != vcsJJ {
@@ -315,6 +304,49 @@ func buildParser(cli *CLI) *kong.Kong {
 			help.WithLongHelp(os.Args, buildExamplesSection()),
 		)),
 	)
+}
+
+func parseArgs(parser *kong.Kong, args []string) error {
+	ctx, err := parser.Parse(args)
+	if err != nil {
+		return err
+	}
+
+	explicitVCS, explicitAlias := explicitVCSFlags(ctx)
+	if explicitVCS && explicitAlias != "" {
+		return fmt.Errorf("--%s and --vcs can't be used together", explicitAlias)
+	}
+	if explicitVCS || explicitAlias != "" {
+		return nil
+	}
+
+	v := envLower(envCloneVCS)
+	if v == "" {
+		return nil
+	}
+	cli, ok := parser.Model.Target.Addr().Interface().(*CLI)
+	if !ok {
+		return fmt.Errorf("parser target is not *CLI")
+	}
+	cli.VCS = v
+	return cli.Validate()
+}
+
+func explicitVCSFlags(ctx *kong.Context) (bool, string) {
+	var explicitVCS bool
+	var explicitAlias string
+	for _, path := range ctx.Path {
+		if path.Flag == nil || path.Resolved {
+			continue
+		}
+		switch path.Flag.Name {
+		case "vcs":
+			explicitVCS = true
+		case "git", "jj":
+			explicitAlias = path.Flag.Name
+		}
+	}
+	return explicitVCS, explicitAlias
 }
 
 func cloneHelpSections(th *theme.Theme) func(*kong.Context) ([]help.Section, error) {

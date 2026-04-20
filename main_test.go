@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/alecthomas/kong"
 	"github.com/gechr/clog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,7 +29,7 @@ func TestBuildParserQuick(t *testing.T) {
 
 	var cli CLI
 	parser := buildParser(&cli)
-	_, err := parser.Parse([]string{"-Q", "owner/repo"})
+	err := parseArgs(parser, []string{"-Q", "owner/repo"})
 	require.NoError(t, err)
 
 	cli.Normalize()
@@ -42,7 +43,7 @@ func TestBuildParserRejectsQuickWithDepth(t *testing.T) {
 
 	var cli CLI
 	parser := buildParser(&cli)
-	_, err := parser.Parse([]string{"--quick", "--depth=5", "owner/repo"})
+	err := parseArgs(parser, []string{"--quick", "--depth=5", "owner/repo"})
 	require.EqualError(t, err, "--depth and --quick can't be used together")
 }
 
@@ -51,7 +52,7 @@ func TestBuildParserAttachedShortFlags(t *testing.T) {
 
 	var cli CLI
 	parser := buildParser(&cli)
-	_, err := parser.Parse([]string{"-D10", "-P5", "owner/repo"})
+	err := parseArgs(parser, []string{"-D10", "-P5", "owner/repo"})
 	require.NoError(t, err)
 
 	assert.Equal(t, 10, cli.Depth)
@@ -146,7 +147,7 @@ func TestBuildParserFlagAliases(t *testing.T) {
 
 			var cli CLI
 			parser := buildParser(&cli)
-			_, err := parser.Parse(test.args)
+			err := parseArgs(parser, test.args)
 			require.NoError(t, err)
 			test.check(t, &cli)
 		})
@@ -158,11 +159,69 @@ func TestBuildParserMethodHTTP(t *testing.T) {
 
 	var cli CLI
 	parser := buildParser(&cli)
-	_, err := parser.Parse([]string{"--method=http", "repo"})
+	err := parseArgs(parser, []string{"--method=http", "repo"})
 	require.NoError(t, err)
 
 	cli.Normalize()
 	assert.Equal(t, methodHTTPS, cli.Method)
+}
+
+func TestBuildParserVCSEnum(t *testing.T) {
+	t.Parallel()
+
+	var cli CLI
+	parser := buildParser(&cli)
+	var vcsFlag *kong.Flag
+	for _, flag := range parser.Model.Flags {
+		if flag.Name == "vcs" {
+			vcsFlag = flag
+			break
+		}
+	}
+	require.NotNil(t, vcsFlag)
+	assert.Equal(t, "git,jj", vcsFlag.Enum)
+
+	var kerr *kong.ParseError
+	err := parseArgs(parser, []string{"--vcs=svn", "repo"})
+	require.ErrorAs(t, err, &kerr)
+	assert.Equal(t, `--vcs must be one of "git","jj" but got "svn"`, err.Error())
+}
+
+func TestParseArgsUsesEnvVCSWhenUnset(t *testing.T) {
+	t.Setenv(envCloneVCS, vcsJJ)
+
+	var cli CLI
+	parser := buildParser(&cli)
+	err := parseArgs(parser, []string{"repo"})
+	require.NoError(t, err)
+	assert.Equal(t, vcsJJ, cli.VCS)
+}
+
+func TestParseArgsExplicitVCSOverridesEnv(t *testing.T) {
+	t.Setenv(envCloneVCS, vcsJJ)
+
+	var cli CLI
+	parser := buildParser(&cli)
+	err := parseArgs(parser, []string{"--vcs=git", "repo"})
+	require.NoError(t, err)
+	assert.Equal(t, vcsGit, cli.VCS)
+}
+
+func TestParseArgsExplicitAliasOverridesEnv(t *testing.T) {
+	t.Setenv(envCloneVCS, vcsGit)
+
+	var cli CLI
+	parser := buildParser(&cli)
+	err := parseArgs(parser, []string{"--jj", "repo"})
+	require.NoError(t, err)
+	assert.Equal(t, vcsJJ, cli.VCS)
+}
+
+func TestParseArgsRejectsExplicitAliasWithExplicitVCS(t *testing.T) {
+	var cli CLI
+	parser := buildParser(&cli)
+	err := parseArgs(parser, []string{"--vcs=git", "--jj", "repo"})
+	require.EqualError(t, err, "--jj and --vcs can't be used together")
 }
 
 func TestConfigureClogWritesErrorsToStderr(t *testing.T) {
