@@ -23,29 +23,33 @@ type envConfig struct {
 }
 
 func loadEnvConfig() (envConfig, error) {
-	cfg, err := env.ParseAsWithOptions[envConfig](env.Options{Prefix: "CLONE_"})
-	if err != nil {
-		return envConfig{}, err
-	}
-	cfg.OwnerAliases = normalizeAliasKeys(cfg.OwnerAliases)
-	cfg.RepoAliases = normalizeAliasKeys(cfg.RepoAliases)
-	return cfg, nil
-}
-
-func normalizeAliasKeys(aliases map[string]string) map[string]string {
-	normalized := make(map[string]string, len(aliases))
-	for k, v := range aliases {
-		normalized[strings.ToLower(k)] = v
-	}
-	return normalized
+	return env.ParseAsWithOptions[envConfig](env.Options{Prefix: "CLONE_"})
 }
 
 func envLower(key string) string {
 	return strings.ToLower(strings.TrimSpace(os.Getenv(key)))
 }
 
+// lookupAlias finds a key in aliases using smart-case matching: if the key
+// contains any uppercase letters, only an exact match is accepted; otherwise
+// the lookup is case-insensitive.
+func lookupAlias(key string, aliases map[string]string) (string, bool) {
+	if v, ok := aliases[key]; ok {
+		return v, true
+	}
+	if key != strings.ToLower(key) {
+		return "", false
+	}
+	for k, v := range aliases {
+		if strings.ToLower(k) == key {
+			return v, true
+		}
+	}
+	return "", false
+}
+
 func resolveOwnerAlias(owner string, aliases map[string]string) string {
-	if resolved, ok := aliases[strings.ToLower(owner)]; ok {
+	if resolved, ok := lookupAlias(owner, aliases); ok {
 		return resolved
 	}
 	return owner
@@ -59,7 +63,7 @@ func resolveRepoAlias(arg string, aliases map[string]string) string {
 	if strings.Contains(name, "/") {
 		return arg
 	}
-	resolved, ok := aliases[strings.ToLower(name)]
+	resolved, ok := lookupAlias(name, aliases)
 	if !ok {
 		return arg
 	}
