@@ -73,7 +73,7 @@ func expandMultiPR(repos []string) ([]string, error) {
 }
 
 // isMultiPR returns true when prPart uses `,` or `-` as a list/range
-// separator between numbers. A leading `-` (e.g. `#-1`) is *not* multi-PR —
+// separator between numbers. A leading `-` (e.g. `#-1`) is *not* multi-PR -
 // it falls through to normal parsing which rejects negative numbers.
 func isMultiPR(prPart string) bool {
 	if prPart == "" || !isDigit(rune(prPart[0])) {
@@ -404,7 +404,7 @@ func resolveCloneTargets(
 	}
 	nonGitHub := cli.forge.Host != hostGitHub
 
-	defaultOwner := resolveOwnerAlias(strings.TrimSpace(cli.Owner), envCfg.Aliases)
+	defaultOwner := resolveOwnerAlias(strings.TrimSpace(cli.Owner), envCfg.OwnerAliases)
 	if strings.EqualFold(defaultOwner, atMe) {
 		if nonGitHub {
 			return nil, "", fmt.Errorf("@me is only currently supported for GitHub hosts")
@@ -419,12 +419,13 @@ func resolveCloneTargets(
 
 	requests := make([]repoRequest, 0, len(repos))
 	for _, arg := range repos {
+		arg = resolveRepoAlias(arg, envCfg.RepoAliases)
 		var req repoRequest
 		req, err = parseRepoRequest(arg, defaultOwner)
 		if err != nil {
 			return nil, "", err
 		}
-		req.Owner = resolveOwnerAlias(req.Owner, envCfg.Aliases)
+		req.Owner = resolveOwnerAlias(req.Owner, envCfg.OwnerAliases)
 		if strings.EqualFold(req.Owner, atMe) {
 			if nonGitHub {
 				return nil, "", fmt.Errorf(

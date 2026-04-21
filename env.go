@@ -13,12 +13,13 @@ const (
 )
 
 type envConfig struct {
-	Aliases     map[string]string `env:"OWNER_ALIASES" envKeyValSeparator:"="`
-	BinGit      string            `env:"BIN_GIT"`
-	BinJJ       string            `env:"BIN_JJ"`
-	GitHubToken string            `env:"GITHUB_TOKEN"`
-	Owner       string            `env:"OWNER"`
-	TempDir     string            `env:"TMP_DIR"`
+	OwnerAliases map[string]string `env:"OWNER_ALIASES" envKeyValSeparator:"="`
+	RepoAliases  map[string]string `env:"REPO_ALIASES"  envKeyValSeparator:"="`
+	BinGit       string            `env:"BIN_GIT"`
+	BinJJ        string            `env:"BIN_JJ"`
+	GitHubToken  string            `env:"GITHUB_TOKEN"`
+	Owner        string            `env:"OWNER"`
+	TempDir      string            `env:"TMP_DIR"`
 }
 
 func loadEnvConfig() (envConfig, error) {
@@ -26,12 +27,17 @@ func loadEnvConfig() (envConfig, error) {
 	if err != nil {
 		return envConfig{}, err
 	}
-	normalized := make(map[string]string, len(cfg.Aliases))
-	for k, v := range cfg.Aliases {
+	cfg.OwnerAliases = normalizeAliasKeys(cfg.OwnerAliases)
+	cfg.RepoAliases = normalizeAliasKeys(cfg.RepoAliases)
+	return cfg, nil
+}
+
+func normalizeAliasKeys(aliases map[string]string) map[string]string {
+	normalized := make(map[string]string, len(aliases))
+	for k, v := range aliases {
 		normalized[strings.ToLower(k)] = v
 	}
-	cfg.Aliases = normalized
-	return cfg, nil
+	return normalized
 }
 
 func envLower(key string) string {
@@ -43,4 +49,26 @@ func resolveOwnerAlias(owner string, aliases map[string]string) string {
 		return resolved
 	}
 	return owner
+}
+
+// resolveRepoAlias expands a bare repo alias (no "/") to a full owner/repo,
+// preserving any "=dir" or "#pr" suffixes the user appended.
+func resolveRepoAlias(arg string, aliases map[string]string) string {
+	repoText, dir, hasDir := strings.Cut(arg, "=")
+	name, pr, hasPR := strings.Cut(repoText, "#")
+	if strings.Contains(name, "/") {
+		return arg
+	}
+	resolved, ok := aliases[strings.ToLower(name)]
+	if !ok {
+		return arg
+	}
+	result := resolved
+	if hasPR {
+		result += "#" + pr
+	}
+	if hasDir {
+		result += "=" + dir
+	}
+	return result
 }

@@ -14,7 +14,7 @@ import (
 )
 
 // rangeFilter is an inclusive [min, max] integer range. Zero on either side
-// means unbounded on that side — the zero value matches everything, which
+// means unbounded on that side - the zero value matches everything, which
 // suits filters like star counts where min:0 is a no-op anyway.
 type rangeFilter struct {
 	min int
@@ -134,7 +134,7 @@ func compactLines(text string) string {
 }
 
 // detectVCS inspects an existing clone to decide whether to drive it with jj
-// or git. A `.jj` directory takes precedence — colocated repos have both and
+// or git. A `.jj` directory takes precedence - colocated repos have both and
 // jj should own the update. Falls back to the caller's requested VCS when
 // neither marker is present.
 func detectVCS(dest, fallback string) string {
@@ -149,7 +149,7 @@ func detectVCS(dest, fallback string) string {
 
 // formatCommand formats a command as a shell-quoted string. When dry is true,
 // $HOME-prefixed paths are contracted to ~ for readability. Dry output MUST
-// NOT be executed — the ~ tokens aren't expanded by exec.
+// NOT be executed - the ~ tokens aren't expanded by exec.
 func formatCommand(bin string, args []string, dry bool) string {
 	render := shellQuote
 	if dry {
