@@ -2,8 +2,7 @@ GO       ?= go
 GO_BIN   ?= $(shell $(GO) env GOPATH)/bin
 GO_TOOLS ?= $(shell $(GO) tool | grep /)
 
-GIT_DESCRIBE ?= $(shell git describe --tags 2>/dev/null || echo 0.0.0-dev)
-VERSION      ?= $(shell echo "$(GIT_DESCRIBE)" | sed -E 's/^(v?[0-9]+\.[0-9]+\.[0-9]+)-[0-9]+-g([a-f0-9]+)$$/\1-\2-dev/')
+VERSION      ?= $(shell git describe --tags 2>/dev/null || echo 0.0.0-dev)
 GO_LDFLAGS   ?= -s -w -X main.version=$(VERSION)
 
 .PHONY: all
