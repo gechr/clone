@@ -41,14 +41,14 @@ jobs:
           go-version-file: go.mod
           cache: false
 
-      - uses: goreleaser/goreleaser-action@e24998b8b67b290c2fa8b7c14fcfa7de2c5c9b8c # v7.1.0
+      - uses: goreleaser/goreleaser-action@1a80836c5c9d9e5755a25cb59ec6f45a3b5f41a8 # v7.2.1
         with:
           distribution: goreleaser
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
-      - uses: gechr/homebrew-publish-formula@d79fed3919e14c3d7fea19281f0ee7e04467a3d1 # v1.0.3
+      - uses: gechr/homebrew-publish-formula@04c96853dce59cfbfca97503d2cc625cb3321cee # v1.0.5
         with:
           name: clone
           desc: "Clone GitHub repositories in parallel"
