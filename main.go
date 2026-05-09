@@ -22,7 +22,7 @@ import (
 )
 
 // LevelSuccess is a custom log level for successful completion messages.
-const LevelSuccess = clog.Level(1)
+const LevelSuccess = clog.Level(3)
 
 const (
 	exitCodeUsage  = 2
@@ -158,9 +158,10 @@ func run() error {
 		return envErr
 	}
 
-	// Resolve jj eagerly when updating existing clones, since a mixed set
-	// may contain jj-colocated dirs even if --vcs=git is chosen.
-	needJJ := cli.VCS == vcsJJ || cli.Fetch || cli.Pull
+	// jj is only required when explicitly chosen. For --fetch/--pull we resolve
+	// it lazily after per-target VCS detection, and an explicit --git skips jj
+	// entirely.
+	needJJ := cli.VCS == vcsJJ
 	binGit, binJJ, depsErr := checkDeps(envCfg, needJJ)
 	if depsErr != nil {
 		clog.Error().Msg(depsErr.Error())
@@ -168,6 +169,15 @@ func run() error {
 	}
 	cli.binGit = binGit
 	cli.binJJ = binJJ
+
+	// Best-effort resolve jj for fetch/pull when VCS isn't explicitly set:
+	// per-target detection may discover jj-colocated clones that need it.
+	// Explicit --git or --jj short-circuits this path.
+	if !needJJ && (cli.Fetch || cli.Pull) && !cli.explicitVCS {
+		if jj, jjErr := resolveBinPath(envCfg.BinJJ, "CLONE_BIN_JJ", nameJJ); jjErr == nil {
+			cli.binJJ = jj
+		}
+	}
 
 	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()

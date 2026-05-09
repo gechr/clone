@@ -348,7 +348,7 @@ func TestPrepareClonersWithFetch(t *testing.T) {
 		},
 	}
 
-	cloners, fetchers, err := prepareCloners(targets, false, false, false, true, false)
+	cloners, fetchers, err := prepareCloners(targets, prepareCloneOpts{Fetch: true})
 	require.NoError(t, err)
 	require.Len(t, cloners, 1)
 	require.Equal(t, "owner/new-repo", cloners[0].Slug)
@@ -420,7 +420,7 @@ func TestPrepareClonersWithoutFetch(t *testing.T) {
 		},
 	}
 
-	cloners, fetchers, err := prepareCloners(targets, false, false, false, false, false)
+	cloners, fetchers, err := prepareCloners(targets, prepareCloneOpts{})
 	require.NoError(t, err)
 	require.Len(t, cloners, 1)
 	require.Equal(t, "owner/new-repo", cloners[0].Slug)

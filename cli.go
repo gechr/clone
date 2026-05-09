@@ -81,8 +81,9 @@ type CLI struct {
 
 	Height float64 `name:"height" help:"Maximum height as a percentage of the terminal (0.0-1.0)." hidden:"" default:"0.5"`
 
-	binGit string `kong:"-"`
-	binJJ  string `kong:"-"`
+	binGit      string `kong:"-"`
+	binJJ       string `kong:"-"`
+	explicitVCS bool   `kong:"-"`
 
 	forge       forgeConfig `kong:"-"`
 	StarsFilter rangeFilter `kong:"-"`
@@ -330,17 +331,18 @@ func parseArgs(parser *kong.Kong, args []string) error {
 	if explicitVCS && explicitAlias != "" {
 		return fmt.Errorf("--%s and --vcs can't be used together", explicitAlias)
 	}
+	cli, ok := parser.Model.Target.Addr().Interface().(*CLI)
+	if !ok {
+		return fmt.Errorf("parser target is not *CLI")
+	}
 	if explicitVCS || explicitAlias != "" {
+		cli.explicitVCS = true
 		return nil
 	}
 
 	v := envLower(envCloneVCS)
 	if v == "" {
 		return nil
-	}
-	cli, ok := parser.Model.Target.Addr().Interface().(*CLI)
-	if !ok {
-		return fmt.Errorf("parser target is not *CLI")
 	}
 	cli.VCS = v
 	return cli.Validate()

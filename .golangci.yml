@@ -2,22 +2,24 @@ version: "2"
 linters:
   default: all
   disable:
+    - cyclop # noisy
     - err113 # noisy
     - errchkjson # noisy
     - exhaustruct # noisy
     - forbidigo # unnecessary
     - funcorder # noisy
     - funlen # noisy
-    - cyclop # noisy
-    - maintidx # noisy
     - gochecknoglobals # lipgloss styles are globals
     - gocognit # noisy
+    - goconst # noisy
     - gocyclo # noisy
     - godot # noisy
     - gomoddirectives # unnecessary
+    - gomodguard # deprecated
     - inamedparam # noisy
     - ireturn # noisy
     - lll # noisy
+    - maintidx # noisy
     - makezero # noisy
     - nlreturn # noisy
     - noinlineerr # unnecessary
@@ -95,7 +97,7 @@ linters:
           paramsOnly: false
         underef:
           skipRecvDeref: false
-    gomodguard:
+    gomodguard_v2:
       blocked:
         modules:
           - github.com/golang/protobuf:

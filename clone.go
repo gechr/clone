@@ -391,14 +391,14 @@ func logFetchResult(all, failed []*Fetcher) {
 }
 
 func executeClones(ctx context.Context, cli *CLI, baseDir string, targets []CloneTarget) error {
-	cloners, fetchers, err := prepareCloners(
-		targets,
-		!cli.Quiet,
-		!cli.DryRun,
-		cli.Force,
-		cli.Fetch || cli.Pull,
-		cli.Pull,
-	)
+	cloners, fetchers, err := prepareCloners(targets, prepareCloneOpts{
+		Warn:          !cli.Quiet,
+		CreateParents: !cli.DryRun,
+		Force:         cli.Force,
+		Fetch:         cli.Fetch || cli.Pull,
+		Pull:          cli.Pull,
+		RespectVCS:    cli.explicitVCS,
+	})
 	if err != nil {
 		return err
 	}
@@ -438,19 +438,24 @@ func executeClones(ctx context.Context, cli *CLI, baseDir string, targets []Clon
 	return execErr
 }
 
+type prepareCloneOpts struct {
+	Warn          bool
+	CreateParents bool
+	Force         bool
+	Fetch         bool
+	Pull          bool
+	RespectVCS    bool
+}
+
 func prepareCloners(
 	targets []CloneTarget,
-	warn bool,
-	createParents bool,
-	force bool,
-	fetch bool,
-	pull bool,
+	opts prepareCloneOpts,
 ) ([]*Cloner, []*Fetcher, error) {
 	cloners := make([]*Cloner, 0, len(targets))
 	var fetchers []*Fetcher
 	var skipped []CloneTarget
 	for _, target := range targets {
-		if createParents {
+		if opts.CreateParents {
 			if err := ensureCloneParent(target.Dest); err != nil {
 				return nil, nil, err
 			}
@@ -459,12 +464,20 @@ func prepareCloners(
 		if err != nil {
 			return nil, nil, err
 		}
-		if exists && fetch {
-			target.VCS = detectVCS(target.Dest, target.VCS)
-			fetchers = append(fetchers, NewFetcher(target, pull, pull && force))
+		if exists && opts.Fetch {
+			if !opts.RespectVCS {
+				target.VCS = detectVCS(target.Dest, target.VCS)
+			}
+			if target.VCS == vcsJJ && target.BinJJ == "" {
+				return nil, nil, fmt.Errorf(
+					"'jj' must be installed to update jj-colocated clone %s (run 'brew install jj', or pass --git to drive it with git)",
+					target.Dest,
+				)
+			}
+			fetchers = append(fetchers, NewFetcher(target, opts.Pull, opts.Pull && opts.Force))
 			continue
 		}
-		if exists && !force {
+		if exists && !opts.Force {
 			skipped = append(skipped, target)
 			continue
 		}
@@ -475,7 +488,7 @@ func prepareCloners(
 		}
 		cloners = append(cloners, NewCloner(target))
 	}
-	if warn && len(skipped) > 0 {
+	if opts.Warn && len(skipped) > 0 {
 		links := make([]clog.Link, len(skipped))
 		for i, t := range skipped {
 			links[i] = clog.Link{Text: t.Label, URL: t.RepoURL}
