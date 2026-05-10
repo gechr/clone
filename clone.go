@@ -24,6 +24,10 @@ import (
 
 const minOverallProgressRepos = 5
 
+// jjNoSignArgs skips signing the working-copy commit jj creates during
+// init/import. Avoids hammering gpg-agent's secmem under parallel clones.
+var jjNoSignArgs = []string{"--config", `signing.behavior="drop"`}
+
 // dryRunColor is set by main.go once the color mode is resolved.
 var dryRunColor = false
 
@@ -718,10 +722,14 @@ func (c *Cloner) checkoutPR(ctx context.Context) error {
 	}
 
 	if c.VCS == vcsJJ {
-		if err := runCommandInDir(ctx, c.Dest, c.BinJJ, []string{"git", "import"}); err != nil {
+		importArgs := append([]string{}, jjNoSignArgs...)
+		importArgs = append(importArgs, "git", "import")
+		if err := runCommandInDir(ctx, c.Dest, c.BinJJ, importArgs); err != nil {
 			return fmt.Errorf("importing git refs: %w", err)
 		}
-		return runCommandInDir(ctx, c.Dest, c.BinJJ, []string{"new", c.PRHeadRef, "--quiet"})
+		newArgs := append([]string{}, jjNoSignArgs...)
+		newArgs = append(newArgs, "new", c.PRHeadRef, "--quiet")
+		return runCommandInDir(ctx, c.Dest, c.BinJJ, newArgs)
 	}
 
 	return runCommandInDir(ctx, c.Dest, c.BinGit, []string{"checkout", c.PRHeadRef, "--quiet"})
@@ -822,7 +830,8 @@ func (c *Cloner) gitCloneArgs(includeProgress bool) []string {
 }
 
 func (c *Cloner) jjInitArgs() []string {
-	return []string{"git", "init", "--color=never", "--colocate", "."}
+	args := append([]string{}, jjNoSignArgs...)
+	return append(args, "git", "init", "--color=never", "--colocate", ".")
 }
 
 func (c *Cloner) DryRunCommand() string {
@@ -840,14 +849,12 @@ func (c *Cloner) DryRunCommand() string {
 			"-C", c.Dest, "fetch", "origin", prRef, "--no-tags",
 		}, true))
 		if c.VCS == vcsJJ {
-			lines = append(
-				lines,
-				formatCommand(c.BinJJ, []string{"-R", c.Dest, "git", "import"}, true),
-			)
-			lines = append(
-				lines,
-				formatCommand(c.BinJJ, []string{"-R", c.Dest, "new", c.PRHeadRef}, true),
-			)
+			importArgs := append([]string{}, jjNoSignArgs...)
+			importArgs = append(importArgs, "-R", c.Dest, "git", "import")
+			lines = append(lines, formatCommand(c.BinJJ, importArgs, true))
+			newArgs := append([]string{}, jjNoSignArgs...)
+			newArgs = append(newArgs, "-R", c.Dest, "new", c.PRHeadRef)
+			lines = append(lines, formatCommand(c.BinJJ, newArgs, true))
 		} else {
 			lines = append(
 				lines,
@@ -963,7 +970,8 @@ func (f *Fetcher) gitFetchArgs(includeProgress bool) []string {
 }
 
 func (f *Fetcher) jjImportArgs() []string {
-	return []string{"-R", f.Dest, "git", "import", "--quiet"}
+	args := append([]string{}, jjNoSignArgs...)
+	return append(args, "-R", f.Dest, "git", "import", "--quiet")
 }
 
 func (f *Fetcher) DryRunCommand() string {

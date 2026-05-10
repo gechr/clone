@@ -89,6 +89,8 @@ func TestClonerJJInitArgs(t *testing.T) {
 		Branch: "main",
 	})
 	want := []string{
+		"--config",
+		`signing.behavior="drop"`,
 		"git",
 		"init",
 		"--color=never",
@@ -191,7 +193,7 @@ func TestClonerDryRunCommand(t *testing.T) {
 				VCS:    vcsJJ,
 			}),
 			want: "git clone git@github.com:owner/repo.git repo" + dryRunSep() + "" +
-				"jj git init --color=never --colocate repo",
+				`jj --config 'signing.behavior="drop"' git init --color=never --colocate repo`,
 		},
 		{
 			name: "git with PR",
@@ -221,10 +223,10 @@ func TestClonerDryRunCommand(t *testing.T) {
 				PRHeadRef:   "feature-branch",
 			},
 			want: "git clone git@github.com:owner/repo.git repo" + dryRunSep() + "" +
-				"jj git init --color=never --colocate repo" + dryRunSep() + "" +
+				`jj --config 'signing.behavior="drop"' git init --color=never --colocate repo` + dryRunSep() + "" +
 				"git -C repo fetch origin refs/pull/21/head:feature-branch --no-tags" + dryRunSep() + "" +
-				"jj -R repo git import" + dryRunSep() + "" +
-				"jj -R repo new feature-branch",
+				`jj --config 'signing.behavior="drop"' -R repo git import` + dryRunSep() + "" +
+				`jj --config 'signing.behavior="drop"' -R repo new feature-branch`,
 		},
 	}
 
@@ -313,7 +315,8 @@ func TestFetcherDryRunCommand(t *testing.T) {
 		{
 			name:    "jj",
 			fetcher: &Fetcher{BinGit: "git", BinJJ: "jj", Dest: "repo", VCS: vcsJJ},
-			want:    "git -C repo fetch" + dryRunSep() + "jj -R repo git import --quiet",
+			want: "git -C repo fetch" + dryRunSep() +
+				`jj --config 'signing.behavior="drop"' -R repo git import --quiet`,
 		},
 	}
 
