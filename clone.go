@@ -87,6 +87,7 @@ type Cloner struct {
 	Dest         string
 	Label        string
 	Mirror       bool
+	PRLabel      string
 	PRHeadRef    string
 	PullRequest  string
 	RepoURL      string
@@ -109,6 +110,7 @@ func NewCloner(target CloneTarget) *Cloner {
 		Dest:         target.Dest,
 		Label:        target.Label,
 		Mirror:       target.Mirror,
+		PRLabel:      target.PRLabel,
 		PRHeadRef:    target.PRHeadRef,
 		PullRequest:  target.PullRequest,
 		RepoURL:      target.RepoURL,
@@ -272,16 +274,37 @@ func groupOptions(
 func cloneLinks(cloners []*Cloner) []clog.Link {
 	links := make([]clog.Link, len(cloners))
 	for i, c := range cloners {
-		link := clog.Link{Text: c.Label, URL: c.RepoURL}
+		link := clog.Link{Text: c.LinkText(), URL: c.LinkURL()}
 		links[i] = link
 	}
 	return links
 }
 
+func (c *Cloner) LinkKey() string {
+	if c.PRLabel != "" {
+		return "pr"
+	}
+	return "repository"
+}
+
+func (c *Cloner) LinkText() string {
+	if c.PRLabel != "" {
+		return c.Slug + "#" + c.PRLabel
+	}
+	return c.Label
+}
+
+func (c *Cloner) LinkURL() string {
+	if c.PRLabel != "" && c.RepoURL != "" {
+		return strings.TrimRight(c.RepoURL, pathSep) + "/pull/" + c.PRLabel
+	}
+	return c.RepoURL
+}
+
 func logCloneFailed(failed []*Cloner) {
 	links := cloneLinks(failed)
 	if len(links) == 1 {
-		e := clog.Error().Link("repository", links[0].URL, links[0].Text)
+		e := clog.Error().Link(failed[0].LinkKey(), links[0].URL, links[0].Text)
 		if failed[0].Err != nil {
 			e = e.Str("reason", failed[0].Err.Error())
 		}
@@ -322,7 +345,7 @@ func logCloneResult(baseDir string, all, failed []*Cloner) {
 func logCloneSucceeded(baseDir string, succeeded []*Cloner) {
 	links := cloneLinks(succeeded)
 	if len(links) == 1 {
-		e := clog.Log(LevelSuccess).Link("repository", links[0].URL, links[0].Text)
+		e := clog.Log(LevelSuccess).Link(succeeded[0].LinkKey(), links[0].URL, links[0].Text)
 		if baseDir != "" {
 			e = e.Path("directory", succeeded[0].Dest)
 		}
@@ -596,7 +619,7 @@ func executeWithProgress(
 			cloneBarOptions(verbose, stats)...).
 			Symbol("·").
 			Spinner().
-			Link("repository", cloner.RepoURL, cloner.Label)
+			Link(cloner.LinkKey(), cloner.LinkURL(), cloner.LinkText())
 		if cloner.CustomDest {
 			b = b.Path("destination", cloner.Dest)
 		}

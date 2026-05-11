@@ -163,6 +163,35 @@ func TestShowOverallProgress(t *testing.T) {
 	}
 }
 
+func TestClonerLinkUsesPRIdentity(t *testing.T) {
+	t.Parallel()
+
+	cloner := NewCloner(CloneTarget{
+		Label:   "repo",
+		Slug:    "owner/repo",
+		RepoURL: "https://github.com/owner/repo",
+		PRLabel: "21",
+	})
+
+	require.Equal(t, "pr", cloner.LinkKey())
+	require.Equal(t, "owner/repo#21", cloner.LinkText())
+	require.Equal(t, "https://github.com/owner/repo/pull/21", cloner.LinkURL())
+}
+
+func TestClonerLinkUsesRepositoryIdentity(t *testing.T) {
+	t.Parallel()
+
+	cloner := NewCloner(CloneTarget{
+		Label:   "repo",
+		Slug:    "owner/repo",
+		RepoURL: "https://github.com/owner/repo",
+	})
+
+	require.Equal(t, "repository", cloner.LinkKey())
+	require.Equal(t, "repo", cloner.LinkText())
+	require.Equal(t, "https://github.com/owner/repo", cloner.LinkURL())
+}
+
 func TestClonerDryRunCommand(t *testing.T) {
 	t.Parallel()
 

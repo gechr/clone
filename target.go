@@ -36,6 +36,7 @@ type CloneTarget struct {
 	Label         string
 	Mirror        bool
 	Owner         string
+	PRLabel       string
 	PRHeadRef     string
 	PullRequest   string
 	Repo          string
@@ -641,6 +642,7 @@ func resolveCloneTargets(
 		}
 
 		if req.PullRequest != "" {
+			target.PRLabel = req.PullRequest
 			res := prMap[prKey(req)]
 			if res.useBranch {
 				target.Branch = res.headRef

@@ -207,6 +207,7 @@ func TestResolveCloneTargetsPR(t *testing.T) {
 	require.Len(t, targets, 1)
 	require.Equal(t, "feature-branch", targets[0].Branch)
 	require.Empty(t, targets[0].PullRequest)
+	require.Equal(t, "21", targets[0].PRLabel)
 }
 
 func TestResolveCloneTargetsPRBranchConflict(t *testing.T) {
