@@ -9,9 +9,9 @@ require (
 	github.com/alecthomas/kong v1.15.0
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/cli/go-gh/v2 v2.13.0
-	github.com/gechr/clib v0.4.4
+	github.com/gechr/clib v0.4.13
 	github.com/gechr/clog v0.9.8
-	github.com/gechr/x v0.0.7
+	github.com/gechr/x v0.0.8
 	github.com/stretchr/testify v1.11.1
 )
 

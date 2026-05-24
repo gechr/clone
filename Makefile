@@ -1,9 +1,9 @@
-GO       ?= go
-GO_BIN   ?= $(shell $(GO) env GOPATH)/bin
-GO_TOOLS ?= $(shell $(GO) tool | grep /)
+GO         ?= go
+GO_BIN     ?= $(shell $(GO) env GOPATH)/bin
+GO_TOOLS   ?= $(shell $(GO) tool | grep /)
 
-VERSION      ?= $(shell git describe --tags 2>/dev/null || echo 0.0.0-dev)
-GO_LDFLAGS   ?= -s -w -X main.version=$(VERSION)
+VERSION    ?= $(shell git describe --tags 2>/dev/null || echo 0.0.0-dev)
+GO_LDFLAGS ?= -s -w -X main.version=$(VERSION)
 
 .PHONY: all
 all: fmt lint test
@@ -17,8 +17,8 @@ DIST_DIR ?= dist
 
 .PHONY: demo
 demo:
-	@vhs assets/demo.tape > /dev/null
-	@vhs assets/help.tape > /dev/null
+	@vhs assets/demo.tape >/dev/null
+	@vhs assets/help.tape >/dev/null
 
 .PHONY: build
 build:
