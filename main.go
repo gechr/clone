@@ -110,7 +110,7 @@ func configureClog() {
 			clog.LevelDry:   new(lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)),
 		},
 	})
-	clog.SetSpinnerStyle(spinner.DotsBounce)
+	clog.SetSpinnerDefaults(spinner.WithConfig(spinner.DotsBounce))
 }
 
 func run() error {
@@ -137,8 +137,7 @@ func run() error {
 	}
 
 	if parseErr != nil {
-		var parseKongErr *kong.ParseError
-		if errors.As(parseErr, &parseKongErr) {
+		if parseKongErr, ok := errors.AsType[*kong.ParseError](parseErr); ok {
 			return &userError{msg: parseErr.Error(), exitCode: parseKongErr.ExitCode()}
 		}
 		return &userError{msg: parseErr.Error(), exitCode: exitCodeUsage}

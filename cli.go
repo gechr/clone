@@ -303,7 +303,7 @@ func uniqueTopicFilters(filters [][]string) [][]string {
 }
 
 func buildParser(cli *CLI) *kong.Kong {
-	th := theme.Default()
+	th := theme.Auto()
 	renderer := help.NewRenderer(th)
 	return kong.Must(
 		cli,

@@ -187,7 +187,7 @@ func cloneBarOptions(verbose bool, stats *atomic.Pointer[transferStats]) []bar.O
 	)
 
 	return []bar.Option{
-		bar.WithStyle(bar.Thin),
+		bar.WithConfig(bar.Thin),
 		bar.WithPendingMode(bar.PendingHide),
 		bar.WithProgressGradient(bar.DefaultGradient()...),
 		bar.WithWidgetLeft(widget.None()),
@@ -249,14 +249,14 @@ func groupOptions(
 	parallelism, taskCount int,
 	height float64,
 	activeLabel, doneLabel string,
-) []clog.GroupOption {
-	options := []clog.GroupOption{
-		clog.WithParallelism(parallelism),
-		clog.WithHideDone(),
-		clog.WithMaxHeightPercent(height),
+) []fx.GroupOption {
+	options := []fx.GroupOption{
+		fx.WithParallelism(parallelism),
+		fx.WithHideDone(),
+		fx.WithMaxHeightPercent(height),
 	}
 	if showOverallProgress(taskCount) {
-		options = append(options, clog.WithFooter(
+		options = append(options, fx.WithFooter(
 			clog.Spinner(activeLabel),
 			func(done, total int, u *clog.Update) {
 				msg := activeLabel
