@@ -24,6 +24,13 @@ func TestCLINormalizeMethodHTTPToHTTPS(t *testing.T) {
 	require.Equal(t, methodHTTPS, cli.Method)
 }
 
+func TestMethodForToken(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, methodSSH, methodForToken(true), "a token implies a configured account")
+	require.Equal(t, methodHTTPS, methodForToken(false), "anonymous use defaults to HTTPS")
+}
+
 func TestCLINormalizeMethodHTTPSUnchanged(t *testing.T) {
 	t.Parallel()
 

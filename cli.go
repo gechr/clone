@@ -99,6 +99,18 @@ func vcsDefault() string {
 	return vcsGit
 }
 
+// methodForToken picks the default clone method when the user has set neither
+// --method nor CLONE_METHOD. SSH suits a configured account, but it fails on a
+// machine with no SSH key - which strongly correlates with having no token
+// either - so anonymous use defaults to HTTPS, which clones public
+// repositories without any credentials.
+func methodForToken(hasToken bool) string {
+	if hasToken {
+		return methodSSH
+	}
+	return methodHTTPS
+}
+
 func (c *CLI) Normalize() {
 	if c.Method == "http" {
 		c.Method = methodHTTPS
@@ -305,7 +317,7 @@ func uniqueTopicFilters(filters [][]string) [][]string {
 func buildParser(cli *CLI) *kong.Kong {
 	th := theme.Auto()
 	renderer := help.NewRenderer(th)
-	return kong.Must(
+	parser := kong.Must(
 		cli,
 		kong.Name("clone"),
 		kong.Description("Clone GitHub repositories in parallel."),
@@ -318,6 +330,24 @@ func buildParser(cli *CLI) *kong.Kong {
 			help.WithLongHelp(os.Args, buildExamplesSection()),
 		)),
 	)
+	// kong requires a static enum default, but the real default for --method is
+	// auth-dependent: anonymous use defaults to HTTPS (the tokenless user
+	// usually has no SSH key), authenticated use to SSH. An explicit --method or
+	// CLONE_METHOD still wins, since both outrank a flag default in kong.
+	setMethodDefault(parser)
+	return parser
+}
+
+// setMethodDefault overrides the --method flag's parse default with the
+// auth-aware choice. See methodForToken.
+func setMethodDefault(parser *kong.Kong) {
+	method := methodForToken(githubToken() != "")
+	for _, flag := range parser.Model.Flags {
+		if flag.Name == "method" {
+			flag.Default = method
+			return
+		}
+	}
 }
 
 func parseArgs(parser *kong.Kong, args []string) error {
@@ -381,6 +411,9 @@ func cloneHelpSections(th *theme.Theme) func(*kong.Context) ([]help.Section, err
 		})
 		patchHelpFlag(sections, "vcs", func(flag *help.Flag) {
 			flag.EnumDefault = vcsDefault()
+		})
+		patchHelpFlag(sections, "method", func(flag *help.Flag) {
+			flag.EnumDefault = methodForToken(githubToken() != "")
 		})
 
 		return sections, nil
