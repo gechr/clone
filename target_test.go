@@ -18,6 +18,7 @@ type fakeRepoLister struct {
 }
 
 func (f fakeRepoLister) ListViewerRepos(
+	_ context.Context,
 	source viewerSource,
 	opts repoListOptions,
 ) ([]repoInfo, error) {
@@ -34,7 +35,11 @@ func (f fakeRepoLister) ListViewerRepos(
 	return filtered, nil
 }
 
-func (f fakeRepoLister) ListOwnerRepos(owner string, opts repoListOptions) ([]repoInfo, error) {
+func (f fakeRepoLister) ListOwnerRepos(
+	_ context.Context,
+	owner string,
+	opts repoListOptions,
+) ([]repoInfo, error) {
 	var filtered []repoInfo
 	for _, repo := range f.repos[owner] {
 		if opts.Visibility != "" && opts.Visibility != "all" && repo.Visibility != opts.Visibility {
@@ -54,7 +59,11 @@ func (f fakeRepoLister) ListOwnerRepos(owner string, opts repoListOptions) ([]re
 	return filtered, nil
 }
 
-func (f fakeRepoLister) ResolvePR(owner, repo string, number int) (prInfo, error) {
+func (f fakeRepoLister) ResolvePR(
+	_ context.Context,
+	owner, repo string,
+	number int,
+) (prInfo, error) {
 	key := fmt.Sprintf("%s/%s#%d", owner, repo, number)
 	if info, ok := f.prs[key]; ok {
 		return info, nil

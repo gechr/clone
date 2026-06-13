@@ -196,14 +196,21 @@ func run() error {
 			if lister != nil {
 				return lister, nil
 			}
-			if authErr := ensureGHAuth(); authErr != nil {
-				return nil, authErr
+			// With a token, use GraphQL (5,000 req/hour). Without one, fall
+			// back to the anonymous REST API: GraphQL has no unauthenticated
+			// tier, whereas REST permits anonymous access at 60 req/hour. The
+			// reduced limit is surfaced only if it is actually hit, so the
+			// tokenless path stays seamless until auth genuinely matters.
+			if token := githubToken(); token != "" {
+				_ = os.Setenv("GH_TOKEN", token)
+				nextLister, listerErr := newGraphQLRepoLister()
+				if listerErr != nil {
+					return nil, listerErr
+				}
+				lister = nextLister
+			} else {
+				lister = newRESTRepoLister()
 			}
-			nextLister, listerErr := newGraphQLRepoLister()
-			if listerErr != nil {
-				return nil, listerErr
-			}
-			lister = nextLister
 			return lister, nil
 		}),
 	)
@@ -238,15 +245,20 @@ func run() error {
 
 type lazyRepoLister func() (repoLister, error)
 
-func (f lazyRepoLister) ListOwnerRepos(owner string, opts repoListOptions) ([]repoInfo, error) {
+func (f lazyRepoLister) ListOwnerRepos(
+	ctx context.Context,
+	owner string,
+	opts repoListOptions,
+) ([]repoInfo, error) {
 	lister, err := f()
 	if err != nil {
 		return nil, err
 	}
-	return lister.ListOwnerRepos(owner, opts)
+	return lister.ListOwnerRepos(ctx, owner, opts)
 }
 
 func (f lazyRepoLister) ListViewerRepos(
+	ctx context.Context,
 	source viewerSource,
 	opts repoListOptions,
 ) ([]repoInfo, error) {
@@ -254,15 +266,19 @@ func (f lazyRepoLister) ListViewerRepos(
 	if err != nil {
 		return nil, err
 	}
-	return lister.ListViewerRepos(source, opts)
+	return lister.ListViewerRepos(ctx, source, opts)
 }
 
-func (f lazyRepoLister) ResolvePR(owner, repo string, number int) (prInfo, error) {
+func (f lazyRepoLister) ResolvePR(
+	ctx context.Context,
+	owner, repo string,
+	number int,
+) (prInfo, error) {
 	lister, err := f()
 	if err != nil {
 		return prInfo{}, err
 	}
-	return lister.ResolvePR(owner, repo, number)
+	return lister.ResolvePR(ctx, owner, repo, number)
 }
 
 func resolveColorEnabled(mode clog.ColorMode) bool {
@@ -321,15 +337,4 @@ func githubToken() string {
 		return token
 	}
 	return ""
-}
-
-func ensureGHAuth() error {
-	token := githubToken()
-	if token == "" {
-		return fmt.Errorf(
-			"not authenticated with GitHub (set CLONE_GITHUB_TOKEN or run 'gh auth login')",
-		)
-	}
-	_ = os.Setenv("GH_TOKEN", token)
-	return nil
 }

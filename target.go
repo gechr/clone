@@ -239,7 +239,7 @@ func resolveViewerTargets(
 	listErr := s.Wait(ctx, func(_ context.Context) error {
 		seen := make(map[string]struct{})
 		for _, source := range sources {
-			fetched, fetchErr := lister.ListViewerRepos(source, repoListOptions{
+			fetched, fetchErr := lister.ListViewerRepos(ctx, source, repoListOptions{
 				IncludeArchived: cli.Archived,
 				IncludeForked:   cli.Forked,
 				Languages:       cli.Languages,
@@ -486,7 +486,7 @@ func resolveCloneTargets(
 			s := fetchSpinner(owner, cli)
 			listErr := s.Wait(ctx, func(_ context.Context) error {
 				var listErr error
-				ownerRepos, listErr = lister.ListOwnerRepos(owner, repoListOptions{
+				ownerRepos, listErr = lister.ListOwnerRepos(ctx, owner, repoListOptions{
 					IncludeArchived: cli.Archived,
 					IncludeForked:   cli.Forked,
 					Languages:       cli.Languages,
@@ -577,7 +577,7 @@ func resolveCloneTargets(
 				req.Name,
 			)
 		}
-		info, resolveErr := lister.ResolvePR(req.Owner, req.Name, number)
+		info, resolveErr := lister.ResolvePR(ctx, req.Owner, req.Name, number)
 		if resolveErr != nil {
 			reason := resolveErr.Error()
 			if inner := errors.Unwrap(resolveErr); inner != nil {

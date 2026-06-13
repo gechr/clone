@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -9,9 +10,13 @@ import (
 )
 
 type repoLister interface {
-	ListOwnerRepos(owner string, opts repoListOptions) ([]repoInfo, error)
-	ListViewerRepos(source viewerSource, opts repoListOptions) ([]repoInfo, error)
-	ResolvePR(owner, repo string, number int) (prInfo, error)
+	ListOwnerRepos(ctx context.Context, owner string, opts repoListOptions) ([]repoInfo, error)
+	ListViewerRepos(
+		ctx context.Context,
+		source viewerSource,
+		opts repoListOptions,
+	) ([]repoInfo, error)
+	ResolvePR(ctx context.Context, owner, repo string, number int) (prInfo, error)
 }
 
 type viewerSource int
@@ -67,7 +72,11 @@ func newGraphQLRepoLister() (*graphQLRepoLister, error) {
 	return &graphQLRepoLister{client: client}, nil
 }
 
-func (l *graphQLRepoLister) ListOwnerRepos(owner string, opts repoListOptions) ([]repoInfo, error) {
+func (l *graphQLRepoLister) ListOwnerRepos(
+	ctx context.Context,
+	owner string,
+	opts repoListOptions,
+) ([]repoInfo, error) {
 	const query = `
 query OwnerRepos($owner: String!, $endCursor: String) {
   repositoryOwner(login: $owner) {
@@ -131,7 +140,7 @@ query OwnerRepos($owner: String!, $endCursor: String) {
 		}
 
 		vars := map[string]any{"owner": owner, "endCursor": cursor}
-		if err := l.client.Do(query, vars, &result); err != nil {
+		if err := l.client.DoWithContext(ctx, query, vars, &result); err != nil {
 			return nil, fmt.Errorf("querying repositories for %s: %w", owner, err)
 		}
 		if result.RepositoryOwner == nil {
@@ -194,6 +203,7 @@ query OwnerRepos($owner: String!, $endCursor: String) {
 }
 
 func (l *graphQLRepoLister) ListViewerRepos(
+	ctx context.Context,
 	source viewerSource,
 	opts repoListOptions,
 ) ([]repoInfo, error) {
@@ -262,7 +272,12 @@ query($endCursor: String) {
 		}
 
 		raw := map[string]any{}
-		if err := l.client.Do(query, map[string]any{"endCursor": cursor}, &raw); err != nil {
+		if err := l.client.DoWithContext(
+			ctx,
+			query,
+			map[string]any{"endCursor": cursor},
+			&raw,
+		); err != nil {
 			return nil, fmt.Errorf("querying viewer %s: %w", source.label(), err)
 		}
 		viewer, ok := raw["viewer"].(map[string]any)
@@ -337,7 +352,11 @@ query($endCursor: String) {
 	return repos, nil
 }
 
-func (l *graphQLRepoLister) ResolvePR(owner, repo string, number int) (prInfo, error) {
+func (l *graphQLRepoLister) ResolvePR(
+	ctx context.Context,
+	owner, repo string,
+	number int,
+) (prInfo, error) {
 	const query = `
 query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
@@ -360,11 +379,15 @@ query($owner: String!, $repo: String!, $number: Int!) {
 	}
 
 	vars := map[string]any{"owner": owner, "repo": repo, "number": number}
-	if err := l.client.Do(query, vars, &result); err != nil {
+	if err := l.client.DoWithContext(ctx, query, vars, &result); err != nil {
 		return prInfo{}, fmt.Errorf("querying PR #%d in %s/%s: %w", number, owner, repo, err)
 	}
 	if result.Repository == nil || result.Repository.PullRequest == nil {
-		return prInfo{}, fmt.Errorf("could not find PR #%d in %s/%s", number, owner, repo)
+		return prInfo{}, fmt.Errorf(
+			"could not find PR #%d in repository %q",
+			number,
+			owner+"/"+repo,
+		)
 	}
 
 	pr := result.Repository.PullRequest
