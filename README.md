@@ -6,11 +6,20 @@ Clone GitHub repositories in parallel.
 
 ## Install
 
+### macOS
+
 ```shell
 brew install gechr/tap/clone
 ```
 
-Or with Go:
+### Windows
+
+```shell
+scoop bucket add gechr https://github.com/gechr/scoop-bucket
+scoop install gechr/clone
+```
+
+### Go
 
 ```shell
 go install github.com/gechr/clone@latest
