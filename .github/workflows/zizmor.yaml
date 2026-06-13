@@ -32,3 +32,4 @@ jobs:
           inputs: ./.github/
           persona: pedantic
           min-severity: low
+          advanced-security: true
