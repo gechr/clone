@@ -44,6 +44,10 @@ scoops:
       name: scoop-bucket
       branch: main
       token: "{{ .Env.SCOOP_GITHUB_TOKEN }}"
+    commit_msg_template: "{{ .ProjectName }}: {{ .Tag }}"
+    commit_author:
+      name: gechr-releaser[bot]
+      email: 273362899+gechr-releaser[bot]@users.noreply.github.com
     directory: bucket
     homepage: https://github.com/gechr/clone
     description: Clone GitHub repositories in parallel
