@@ -37,3 +37,14 @@ archives:
       - goos: windows
         formats:
           - zip
+
+scoops:
+  - repository:
+      owner: gechr
+      name: scoop-bucket
+      branch: main
+      token: "{{ .Env.SCOOP_GITHUB_TOKEN }}"
+    directory: bucket
+    homepage: https://github.com/gechr/clone
+    description: Clone GitHub repositories in parallel
+    license: MIT
