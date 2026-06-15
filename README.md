@@ -6,7 +6,7 @@ Clone GitHub repositories in parallel.
 
 ## Install
 
-### macOS
+### macOS / Linux
 
 ```shell
 brew install gechr/tap/clone
