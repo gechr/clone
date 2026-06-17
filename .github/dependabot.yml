@@ -11,3 +11,16 @@ updates:
       github-actions:
         patterns:
           - "*"
+    ignore:
+      - dependency-name: gechr/actions
+
+  - package-ecosystem: gomod
+    cooldown:
+      default-days: 7
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      go-modules:
+        patterns:
+          - "*"
