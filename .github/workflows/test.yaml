@@ -18,6 +18,6 @@ jobs:
   test:
     permissions:
       contents: read
-    uses: gechr/actions/.github/workflows/test.yaml@a0dfaeb072753c3d48cd4df5fdacfd035b2281bf # v0.2.4
+    uses: gechr/actions/.github/workflows/test.yaml@24aa7833c41452ff05697bdf2dd48f023bcdf33b # v0.2.5
     with:
       language: go

@@ -15,7 +15,7 @@ jobs:
   release:
     permissions:
       contents: write
-    uses: gechr/actions/.github/workflows/release.yaml@a0dfaeb072753c3d48cd4df5fdacfd035b2281bf # v0.2.4
+    uses: gechr/actions/.github/workflows/release.yaml@24aa7833c41452ff05697bdf2dd48f023bcdf33b # v0.2.5
     secrets: inherit
     with:
       language: go
