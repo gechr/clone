@@ -47,6 +47,36 @@ func TestBuildParserRejectsQuickWithDepth(t *testing.T) {
 	require.EqualError(t, err, "--depth and --quick can't be used together")
 }
 
+func TestBuildParserAcceptsMirrorWithForce(t *testing.T) {
+	t.Parallel()
+
+	var cli CLI
+	parser := buildParser(&cli)
+	err := parseArgs(parser, []string{"--mirror", "--force", "--git", "owner/repo"})
+	require.NoError(t, err)
+
+	assert.True(t, cli.Mirror)
+	assert.True(t, cli.Force)
+}
+
+func TestBuildParserRejectsFetchWithForce(t *testing.T) {
+	t.Parallel()
+
+	var cli CLI
+	parser := buildParser(&cli)
+	err := parseArgs(parser, []string{"--fetch", "--force", "owner/repo"})
+	require.EqualError(t, err, "--fetch and --force can't be used together")
+}
+
+func TestBuildParserRejectsFetchWithMirror(t *testing.T) {
+	t.Parallel()
+
+	var cli CLI
+	parser := buildParser(&cli)
+	err := parseArgs(parser, []string{"--fetch", "--mirror", "owner/repo"})
+	require.EqualError(t, err, "--mirror and --fetch can't be used together")
+}
+
 func TestBuildParserAttachedShortFlags(t *testing.T) {
 	t.Parallel()
 
