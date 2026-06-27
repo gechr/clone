@@ -16,7 +16,8 @@ jobs:
     permissions:
       contents: write
     uses: gechr/actions/.github/workflows/release.yaml@24aa7833c41452ff05697bdf2dd48f023bcdf33b # v0.2.5
-    secrets: inherit
+    secrets:
+      RELEASER_APP_PRIVATE_KEY: ${{ secrets.RELEASER_APP_PRIVATE_KEY }}
     with:
       language: go
       name: clone
