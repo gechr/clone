@@ -15,7 +15,7 @@ jobs:
   release:
     permissions:
       contents: write
-    uses: gechr/actions/.github/workflows/release.yaml@24aa7833c41452ff05697bdf2dd48f023bcdf33b # v0.2.5
+    uses: gechr/actions/.github/workflows/release.yaml@854917523e0f0f5208e64c557bd645509944170b # v0.2.6
     secrets:
       RELEASER_APP_PRIVATE_KEY: ${{ secrets.RELEASER_APP_PRIVATE_KEY }}
     with:
