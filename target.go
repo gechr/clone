@@ -551,17 +551,7 @@ func resolveCloneTargets(
 
 	addPRSuffix(selected)
 
-	type prResolution struct {
-		headRef   string
-		useBranch bool
-	}
-	prMap := make(map[string]prResolution)
-	var prCount int
-	for _, req := range selected {
-		if req.PullRequest != "" {
-			prCount++
-		}
-	}
+	prMap := make(map[string]string)
 	kept := selected[:0]
 	for _, req := range selected {
 		if req.PullRequest == "" {
@@ -590,10 +580,7 @@ func resolveCloneTargets(
 				Msg("Skipping")
 			continue
 		}
-		key := prKey(req)
-		useBranch := len(selected) == 1 && prCount == 1 && !info.IsCrossRepository &&
-			info.State == prStateOpen
-		prMap[key] = prResolution{headRef: info.HeadRefName, useBranch: useBranch}
+		prMap[prKey(req)] = info.HeadRefName
 		kept = append(kept, req)
 	}
 	selected = kept
@@ -643,13 +630,8 @@ func resolveCloneTargets(
 
 		if req.PullRequest != "" {
 			target.PRLabel = req.PullRequest
-			res := prMap[prKey(req)]
-			if res.useBranch {
-				target.Branch = res.headRef
-			} else {
-				target.PullRequest = req.PullRequest
-				target.PRHeadRef = res.headRef
-			}
+			target.PullRequest = req.PullRequest
+			target.PRHeadRef = prMap[prKey(req)]
 		}
 
 		targets = append(targets, target)

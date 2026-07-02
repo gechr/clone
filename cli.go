@@ -27,8 +27,6 @@ const (
 	vcsJJ              = nameJJ
 
 	mirrorDocsURL = "https://docs.github.com/en/repositories/creating-and-managing-repositories/duplicating-a-repository"
-
-	prStateOpen = "OPEN"
 )
 
 type CLI struct {

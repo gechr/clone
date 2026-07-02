@@ -115,7 +115,7 @@ func (l *restRepoLister) ListViewerRepos(
 }
 
 // ResolvePR fetches a single pull request. REST reports state in lowercase
-// ("open"), so it is upper-cased to match the GraphQL contract (prStateOpen).
+// ("open"), so it is upper-cased to match the GraphQL contract ("OPEN").
 func (l *restRepoLister) ResolvePR(
 	ctx context.Context,
 	owner, repo string,

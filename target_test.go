@@ -214,8 +214,9 @@ func TestResolveCloneTargetsPR(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Len(t, targets, 1)
-	require.Equal(t, "feature-branch", targets[0].Branch)
-	require.Empty(t, targets[0].PullRequest)
+	require.Empty(t, targets[0].Branch)
+	require.Equal(t, "21", targets[0].PullRequest)
+	require.Equal(t, "feature-branch", targets[0].PRHeadRef)
 	require.Equal(t, "21", targets[0].PRLabel)
 }
 
