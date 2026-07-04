@@ -186,6 +186,27 @@ func parseRepoURL(repoText string) (repoRequest, bool) {
 	return parseForgeURL(repoText)
 }
 
+// resolveDestName computes the destination directory name for a repo
+// request. A trailing slash on dir means "clone into this directory" rather
+// than "use this exact path" - the repo name is appended, the same
+// distinction rsync makes between `dir` and `dir/`. This lets a pre-created
+// empty directory (e.g. from `mktemp -d`) be used as a container rather than
+// being mistaken for an already-cloned destination.
+func resolveDestName(dir, name string, mirror bool) string {
+	repoDirName := name
+	if mirror {
+		repoDirName += dotGit
+	}
+	switch {
+	case dir == "":
+		return repoDirName
+	case strings.HasSuffix(dir, pathSep) || strings.HasSuffix(dir, string(filepath.Separator)):
+		return filepath.Join(dir, repoDirName)
+	default:
+		return dir
+	}
+}
+
 const (
 	minPullSegments  = 4   // owner/repo/pull/N
 	maxRepoNameBytes = 255 // common filesystem NAME_MAX for a single path component
@@ -316,14 +337,7 @@ func buildTargetsFromRequests(
 ) ([]CloneTarget, error) {
 	targets := make([]CloneTarget, 0, len(requests))
 	for _, req := range requests {
-		destName := req.Dir
-		if destName == "" {
-			if cli.Mirror {
-				destName = req.Name + dotGit
-			} else {
-				destName = req.Name
-			}
-		}
+		destName := resolveDestName(req.Dir, req.Name, cli.Mirror)
 		dest := destName
 		if baseDir != "" {
 			dest = filepath.Join(baseDir, destName)
@@ -590,14 +604,7 @@ func resolveCloneTargets(
 
 	targets := make([]CloneTarget, 0, len(selected))
 	for _, req := range selected {
-		destName := req.Dir
-		if destName == "" {
-			if cli.Mirror {
-				destName = req.Name + dotGit
-			} else {
-				destName = req.Name
-			}
-		}
+		destName := resolveDestName(req.Dir, req.Name, cli.Mirror)
 
 		dest := destName
 		if baseDir != "" {

@@ -183,6 +183,32 @@ func TestParseRepoRequestPRShorthand(t *testing.T) {
 	}
 }
 
+func TestResolveDestName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		dir    string
+		mirror bool
+		want   string
+	}{
+		{name: "no dir", dir: "", mirror: false, want: "repo"},
+		{name: "no dir, mirror", dir: "", mirror: true, want: "repo.git"},
+		{name: "explicit dest, used as-is", dir: "worktree", mirror: false, want: "worktree"},
+		{name: "trailing slash, clone into dir", dir: "tmp/", mirror: false, want: "tmp/repo"},
+		{name: "trailing slash, mirror", dir: "tmp/", mirror: true, want: "tmp/repo.git"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := resolveDestName(test.dir, "repo", test.mirror)
+			require.Equal(t, test.want, got)
+		})
+	}
+}
+
 func TestParseRepoRequestRejectsOverlongRepoName(t *testing.T) {
 	t.Parallel()
 
