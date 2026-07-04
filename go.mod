@@ -10,9 +10,9 @@ require (
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/cli/go-gh/v2 v2.13.0
 	github.com/gechr/clib v0.5.9
-	github.com/gechr/clive v0.2.7
+	github.com/gechr/clive v0.2.8
 	github.com/gechr/clog v0.11.15
-	github.com/gechr/conductor v0.0.3
+	github.com/gechr/conductor v0.0.8
 	github.com/gechr/x v0.2.8
 	github.com/stretchr/testify v1.11.1
 )
