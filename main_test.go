@@ -8,6 +8,7 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/gechr/clog"
+	"github.com/gechr/conductor"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,6 +23,26 @@ func TestMain(m *testing.M) {
 		)
 	}
 	os.Exit(m.Run())
+}
+
+// buildParser and parseArgs mirror the production wiring (conductor builds
+// the parser; CLI.Run applies afterParse) as a plain-kong test harness.
+func buildParser(cli *CLI) *kong.Kong {
+	parser := kong.Must(cli, kong.Name("clone"), kong.UsageOnError())
+	setMethodDefault(parser)
+	return parser
+}
+
+func parseArgs(parser *kong.Kong, args []string) error {
+	kctx, err := parser.Parse(args)
+	if err != nil {
+		return err
+	}
+	cli, ok := parser.Model.Target.Addr().Interface().(*CLI)
+	if !ok {
+		return fmt.Errorf("parser target is not *CLI")
+	}
+	return cli.afterParse(kctx)
 }
 
 func TestBuildParserQuick(t *testing.T) {
@@ -278,6 +299,9 @@ func TestConfigureClogWritesErrorsToStderr(t *testing.T) {
 		_ = stderrW.Close()
 	})
 
+	// Stderr routing comes from conductor's defaults; clone's configureClog
+	// layers on top, mirroring the production conductor.New order.
+	conductor.LogDefaults()
 	configureClog()
 	clog.SetColorMode(clog.ColorNever)
 	clog.Error().Msg("boom")

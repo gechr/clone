@@ -6,18 +6,20 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"os/signal"
-	"syscall"
 
 	lipgloss "charm.land/lipgloss/v2"
 	"github.com/alecthomas/kong"
 	"github.com/cli/go-gh/v2/pkg/auth"
 	clib "github.com/gechr/clib/cli/kong"
-	"github.com/gechr/clib/complete"
+	"github.com/gechr/clib/help"
+	"github.com/gechr/clive"
+	"github.com/gechr/clive/updater/brew"
 	"github.com/gechr/clog"
 	"github.com/gechr/clog/fx/spinner"
 	"github.com/gechr/clog/level"
 	"github.com/gechr/clog/style"
+	"github.com/gechr/conductor"
+	cli "github.com/gechr/conductor/cli/kong"
 	"github.com/gechr/x/terminal"
 )
 
@@ -50,34 +52,66 @@ func isCanceled(ctx context.Context, err error) bool {
 }
 
 func main() {
-	configureClog()
+	app := conductor.New(conductor.App{
+		Name:        "clone",
+		DisplayName: "Clone",
+		Description: "Clone GitHub repositories in parallel.",
+		Module:      "github.com/gechr/clone",
+		HelpLong:    "Print long help with examples",
+		Updater: brew.New(
+			clive.Info{Module: "github.com/gechr/clone"},
+			brew.WithName("Clone"),
+			brew.WithFormula("clone"),
+			brew.WithTap("gechr/tap"),
+		),
+		ConfigureLog: configureClog,
+	})
 
-	err := run()
-	if err == nil {
-		return
+	root := CLI{}
+	prog, err := cli.New(app, &root,
+		// Clone builds its own help sections (flag ordering, long-help
+		// examples), overriding conductor's default help wiring.
+		cli.WithKongOptions(kong.Help(clib.HelpPrinterFunc(
+			app.Renderer,
+			cloneHelpSections(app.Theme),
+			help.WithHelpFlags("Print short help", "Print long help with examples"),
+			cloneHelpOrdering(),
+			help.WithLongHelp(os.Args, buildExamplesSection()),
+		))),
+		cli.WithExitCode(exitCode),
+	)
+	if err != nil {
+		clog.Fatal().Err(err).Msg("Failed to build CLI")
 	}
+	setMethodDefault(prog.Parser)
+	os.Exit(prog.Run(os.Args[1:]))
+}
 
+// exitCode maps clone's error taxonomy to process exit codes; the Fatal
+// branches print and exit directly, preserving the pre-conductor output.
+func exitCode(err error) int {
 	var ue *userError
 	switch {
 	case errors.Is(err, errSilent):
-		os.Exit(1)
+		return 1
 	case errors.As(err, &ue):
 		if ue.msg != "" {
 			clog.Fatal().ExitCode(ue.exitCode).Msg(ue.msg)
 		}
-		os.Exit(ue.exitCode)
+		return ue.exitCode
 	default:
 		clog.Fatal().Msg(err.Error())
 	}
+	return 1
 }
 
+// configureClog layers clone's voice (custom success level, symbols, styles,
+// spinner) over conductor's defaults; conductor runs it via App.ConfigureLog.
 func configureClog() {
 	level.Register(LevelSuccess, "success", "OK")
-	clog.SetOutput(clog.Stderr(clog.ColorAuto))
 
 	clog.SetParts(clog.PartSymbol, clog.PartMessage, clog.PartFields)
 	clog.SetLevelAlign(clog.AlignNone)
-	clog.SetSliceSeparator(" ")
 	clog.SetWrap(clog.WrapSoft)
 
 	clog.SetSymbols(clog.LabelMap{
@@ -113,44 +147,20 @@ func configureClog() {
 	clog.SetSpinnerDefaults(spinner.WithConfig(spinner.DotsBounce))
 }
 
-func run() error {
-	cli := CLI{}
-	parser := buildParser(&cli)
-
-	parseErr := parseArgs(parser, os.Args[1:])
-
-	flags, flagsErr := clib.Reflect(&cli)
-	if flagsErr != nil {
-		return flagsErr
-	}
-	gen := complete.NewGenerator("clone").FromFlags(flags)
-	gen.Specs = append(gen.Specs,
-		complete.Spec{ShortFlag: "h", Terse: "Print short help"},
-		complete.Spec{LongFlag: "help", Terse: "Print long help with examples"},
-	)
-	handled, err := cli.Handle(gen, nil)
-	if err != nil {
+// Run implements the kong entry point: conductor dispatches here after
+// completion preflight, parsing, standard-flag application and the passive
+// update check.
+func (c *CLI) Run(kctx *kong.Context, app *conductor.Runtime) error {
+	if err := c.afterParse(kctx); err != nil {
 		return err
 	}
-	if handled {
+
+	if c.Version {
+		app.PrintVersion(false)
 		return nil
 	}
 
-	if parseErr != nil {
-		if parseKongErr, ok := errors.AsType[*kong.ParseError](parseErr); ok {
-			return &userError{msg: parseErr.Error(), exitCode: parseKongErr.ExitCode()}
-		}
-		return &userError{msg: parseErr.Error(), exitCode: exitCodeUsage}
-	}
-
-	if cli.Version {
-		fmt.Println(version)
-		return nil
-	}
-
-	clog.SetColorMode(cli.Color)
-	clog.SetVerbose(cli.Debug)
-	dryRunColor = resolveColorEnabled(cli.Color)
+	dryRunColor = resolveColorEnabled(c.Color)
 
 	envCfg, envErr := loadEnvConfig()
 	if envErr != nil {
@@ -160,25 +170,25 @@ func run() error {
 	// jj is only required when explicitly chosen. For --fetch/--pull we resolve
 	// it lazily after per-target VCS detection, and an explicit --git skips jj
 	// entirely.
-	needJJ := cli.VCS == vcsJJ
+	needJJ := c.VCS == vcsJJ
 	binGit, binJJ, depsErr := checkDeps(envCfg, needJJ)
 	if depsErr != nil {
 		clog.Error().Msg(depsErr.Error())
 		return errSilent
 	}
-	cli.binGit = binGit
-	cli.binJJ = binJJ
+	c.binGit = binGit
+	c.binJJ = binJJ
 
 	// Best-effort resolve jj for fetch/pull when VCS isn't explicitly set:
 	// per-target detection may discover jj-colocated clones that need it.
 	// Explicit --git or --jj short-circuits this path.
-	if !needJJ && (cli.Fetch || cli.Pull) && !cli.explicitVCS {
+	if !needJJ && (c.Fetch || c.Pull) && !c.explicitVCS {
 		if jj, jjErr := resolveBinPath(envCfg.BinJJ, "CLONE_BIN_JJ", nameJJ); jjErr == nil {
-			cli.binJJ = jj
+			c.binJJ = jj
 		}
 	}
 
-	sigCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	sigCtx, stop := conductor.SignalContext()
 	defer stop()
 	ctx, cancel := context.WithCancelCause(sigCtx)
 	context.AfterFunc(sigCtx, func() {
@@ -189,9 +199,9 @@ func run() error {
 	var targets []CloneTarget
 	var baseDir string
 
-	targets, baseDir, err = resolveCloneTargets(
+	targets, baseDir, err := resolveCloneTargets(
 		ctx,
-		&cli,
+		c,
 		lazyRepoLister(func() (repoLister, error) {
 			if lister != nil {
 				return lister, nil
@@ -214,7 +224,7 @@ func run() error {
 			return lister, nil
 		}),
 	)
-	if cli.Temp && baseDir != "" {
+	if c.Temp && baseDir != "" {
 		defer func() { _ = os.Remove(baseDir) }() // remove temp dir if empty
 	}
 	if err != nil {
@@ -227,7 +237,7 @@ func run() error {
 		return errSilent
 	}
 
-	if err := executeClones(ctx, &cli, baseDir, targets); err != nil {
+	if err := executeClones(ctx, c, baseDir, targets); err != nil {
 		if isCanceled(ctx, err) {
 			return &userError{exitCode: exitCodeSignal}
 		}
@@ -237,7 +247,7 @@ func run() error {
 		return errSilent
 	}
 
-	if cli.Print && baseDir != "" {
+	if c.Print && baseDir != "" {
 		fmt.Println(baseDir)
 	}
 	return nil

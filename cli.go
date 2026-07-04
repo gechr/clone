@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"slices"
 	"strings"
 
@@ -11,10 +10,10 @@ import (
 	"github.com/gechr/clib/help"
 	"github.com/gechr/clib/theme"
 	"github.com/gechr/clog"
+	"github.com/gechr/conductor"
+	cli "github.com/gechr/conductor/cli/kong"
 	"github.com/gechr/x/ansi"
 )
-
-var version = "dev"
 
 const (
 	defaultParallelism = 20
@@ -31,6 +30,7 @@ const (
 
 type CLI struct {
 	clib.CompletionFlags
+	cli.SelfUpdateFlag
 
 	Repos []string `name:"repo" help:"Repositories to clone." arg:"" optional:""`
 
@@ -88,6 +88,39 @@ type CLI struct {
 
 	LanguageFilters [][]string `kong:"-"`
 	TopicFilters    [][]string `kong:"-"`
+}
+
+// ConductorFlags implements [conductor.FlagSource]. Clone's --verbose and
+// --quiet steer its own progress output, not clog; only --debug maps to clog
+// verbosity.
+func (c *CLI) ConductorFlags() conductor.Flags {
+	return conductor.Flags{Verbose: c.Debug, Color: c.Color}
+}
+
+// afterParse applies the post-parse validation and env fallbacks that kong
+// cannot express: the --vcs/--git/--jj exclusivity and the CLONE_VCS default.
+func (c *CLI) afterParse(kctx *kong.Context) error {
+	explicitVCS, explicitAlias := explicitVCSFlags(kctx)
+	if explicitVCS && explicitAlias != "" {
+		return &userError{
+			msg:      fmt.Sprintf("--%s and --vcs can't be used together", explicitAlias),
+			exitCode: exitCodeUsage,
+		}
+	}
+	if explicitVCS || explicitAlias != "" {
+		c.explicitVCS = true
+		return nil
+	}
+
+	v := envLower(envCloneVCS)
+	if v == "" {
+		return nil
+	}
+	c.VCS = v
+	if err := c.Validate(); err != nil {
+		return &userError{msg: err.Error(), exitCode: exitCodeUsage}
+	}
+	return nil
 }
 
 func vcsDefault() string {
@@ -312,30 +345,6 @@ func uniqueTopicFilters(filters [][]string) [][]string {
 	return out
 }
 
-func buildParser(cli *CLI) *kong.Kong {
-	th := theme.Auto()
-	renderer := help.NewRenderer(th)
-	parser := kong.Must(
-		cli,
-		kong.Name("clone"),
-		kong.Description("Clone GitHub repositories in parallel."),
-		kong.UsageOnError(),
-		kong.Help(clib.HelpPrinterFunc(
-			renderer,
-			cloneHelpSections(th),
-			help.WithHelpFlags("Print short help", "Print long help with examples"),
-			cloneHelpOrdering(),
-			help.WithLongHelp(os.Args, buildExamplesSection()),
-		)),
-	)
-	// kong requires a static enum default, but the real default for --method is
-	// auth-dependent: anonymous use defaults to HTTPS (the tokenless user
-	// usually has no SSH key), authenticated use to SSH. An explicit --method or
-	// CLONE_METHOD still wins, since both outrank a flag default in kong.
-	setMethodDefault(parser)
-	return parser
-}
-
 // setMethodDefault overrides the --method flag's parse default with the
 // auth-aware choice. See methodForToken.
 func setMethodDefault(parser *kong.Kong) {
@@ -346,33 +355,6 @@ func setMethodDefault(parser *kong.Kong) {
 			return
 		}
 	}
-}
-
-func parseArgs(parser *kong.Kong, args []string) error {
-	ctx, err := parser.Parse(args)
-	if err != nil {
-		return err
-	}
-
-	explicitVCS, explicitAlias := explicitVCSFlags(ctx)
-	if explicitVCS && explicitAlias != "" {
-		return fmt.Errorf("--%s and --vcs can't be used together", explicitAlias)
-	}
-	cli, ok := parser.Model.Target.Addr().Interface().(*CLI)
-	if !ok {
-		return fmt.Errorf("parser target is not *CLI")
-	}
-	if explicitVCS || explicitAlias != "" {
-		cli.explicitVCS = true
-		return nil
-	}
-
-	v := envLower(envCloneVCS)
-	if v == "" {
-		return nil
-	}
-	cli.VCS = v
-	return cli.Validate()
 }
 
 func explicitVCSFlags(ctx *kong.Context) (bool, string) {

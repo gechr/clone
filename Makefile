@@ -3,7 +3,7 @@ GO_BIN     ?= $(shell $(GO) env GOPATH)/bin
 GO_TOOLS   ?= $(shell $(GO) tool | grep /)
 
 VERSION    ?= $(shell git describe --tags 2>/dev/null || echo 0.0.0-dev)
-GO_LDFLAGS ?= -s -w -X main.version=$(VERSION)
+GO_LDFLAGS ?= -s -w -X github.com/gechr/clive.version=$(VERSION)
 
 .PHONY: all
 all: fmt lint test
