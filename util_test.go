@@ -135,30 +135,6 @@ func TestRangeFilterMatches(t *testing.T) {
 	}
 }
 
-func TestCompactLines(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{name: "empty", input: "", want: ""},
-		{name: "single", input: "hello", want: "hello"},
-		{name: "trims whitespace", input: "  a  \n  b  ", want: "a | b"},
-		{name: "drops blank lines", input: "a\n\n\nb", want: "a | b"},
-		{name: "dedupes", input: "a\nb\na\nb\nc", want: "a | b | c"},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			require.Equal(t, test.want, compactLines(test.input))
-		})
-	}
-}
-
 func TestFormatCommand(t *testing.T) {
 	t.Parallel()
 
@@ -191,52 +167,6 @@ func TestFormatCommand(t *testing.T) {
 			require.Equal(t, test.want, formatCommand(test.bin, test.args, false))
 		})
 	}
-}
-
-func TestShellQuote(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{name: "empty", input: "", want: "''"},
-		{name: "plain", input: "abc", want: "abc"},
-		{name: "space", input: "a b", want: "'a b'"},
-		{name: "dollar", input: "$HOME", want: `'$HOME'`},
-		{name: "double quote", input: `a"b`, want: `'a"b'`},
-		{name: "single quote", input: "it's", want: `'it'"'"'s'`},
-		{name: "tab", input: "a\tb", want: "'a\tb'"},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			require.Equal(t, test.want, shellQuote(test.input))
-		})
-	}
-}
-
-func TestPathExists(t *testing.T) {
-	t.Parallel()
-
-	dir := t.TempDir()
-	file := filepath.Join(dir, "f")
-	require.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
-
-	got, err := pathExists(dir)
-	require.NoError(t, err)
-	require.True(t, got)
-
-	got, err = pathExists(file)
-	require.NoError(t, err)
-	require.True(t, got)
-
-	got, err = pathExists(filepath.Join(dir, "missing"))
-	require.NoError(t, err)
-	require.False(t, got)
 }
 
 func TestRunCommandInDir(t *testing.T) {

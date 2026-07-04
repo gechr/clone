@@ -20,6 +20,8 @@ import (
 	"github.com/gechr/clog/fx/bar"
 	"github.com/gechr/clog/fx/bar/widget"
 	"github.com/gechr/x/human"
+	xos "github.com/gechr/x/os"
+	xstrings "github.com/gechr/x/strings"
 )
 
 const minOverallProgressRepos = 5
@@ -487,7 +489,7 @@ func prepareCloners(
 				return nil, nil, err
 			}
 		}
-		exists, err := pathExists(target.Dest)
+		exists, err := xos.Exists(target.Dest)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -1025,7 +1027,7 @@ func formatCloneError(err error, stderrText string) error {
 	if msg := knownError(stderrText); msg != "" {
 		return errors.New(msg)
 	}
-	details := compactLines(stderrText)
+	details := xstrings.CompactLines(stderrText, " | ")
 	if details != "" {
 		return errors.New(details)
 	}

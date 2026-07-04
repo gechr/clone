@@ -13,6 +13,7 @@ import (
 
 	"github.com/gechr/clog"
 	"github.com/gechr/clog/fx"
+	xslices "github.com/gechr/x/slices"
 )
 
 type repoRequest struct {
@@ -711,12 +712,13 @@ func applyNameFilters(requests []repoRequest, cli *CLI) ([]repoRequest, error) {
 
 	filtered := make([]repoRequest, 0, len(requests))
 	for _, req := range requests {
-		if matchesExact(req.Name, cli.Excludes) || matchesAnyRegexp(excludePatterns, req.Name) {
+		if xslices.ContainsFold(cli.Excludes, req.Name) ||
+			matchesAnyRegexp(excludePatterns, req.Name) {
 			continue
 		}
 
 		if len(cli.Includes) > 0 || len(includePatterns) > 0 {
-			if !matchesExact(req.Name, cli.Includes) &&
+			if !xslices.ContainsFold(cli.Includes, req.Name) &&
 				!matchesAnyRegexp(includePatterns, req.Name) {
 				continue
 			}
@@ -737,15 +739,6 @@ func compileRegexps(patterns []string) ([]*regexp.Regexp, error) {
 		compiled = append(compiled, re)
 	}
 	return compiled, nil
-}
-
-func matchesExact(value string, exact []string) bool {
-	for _, item := range exact {
-		if strings.EqualFold(item, value) {
-			return true
-		}
-	}
-	return false
 }
 
 func matchesAnyRegexp(patterns []*regexp.Regexp, value string) bool {

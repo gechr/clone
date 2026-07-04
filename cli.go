@@ -13,6 +13,7 @@ import (
 	"github.com/gechr/conductor"
 	cli "github.com/gechr/conductor/cli/kong"
 	"github.com/gechr/x/ansi"
+	xstrings "github.com/gechr/x/strings"
 )
 
 const (
@@ -288,7 +289,7 @@ func (c *CLI) validateForgeFlags() error {
 func parseFilters(key string, values []string) ([][]string, error) {
 	var filters [][]string
 	for _, value := range values {
-		if strings.TrimSpace(value) == "" {
+		if xstrings.IsBlank(value) {
 			return nil, fmt.Errorf("invalid %s filter %q", key, value)
 		}
 		for clause := range strings.SplitSeq(value, ",") {
