@@ -13,6 +13,7 @@ import (
 	clib "github.com/gechr/clib/cli/kong"
 	"github.com/gechr/clib/help"
 	"github.com/gechr/clive"
+	"github.com/gechr/clive/updater"
 	"github.com/gechr/clive/updater/brew"
 	"github.com/gechr/clog"
 	"github.com/gechr/clog/fx/spinner"
@@ -145,6 +146,20 @@ func configureClog() {
 		},
 	})
 	clog.SetSpinnerDefaults(spinner.WithConfig(spinner.DotsBounce))
+
+	// Align clive's self-update glyphs and colours with clone's own symbol set
+	// so the updater's lines don't clash with the emoji defaults.
+	updater.SetSymbols(
+		updater.WithUpToDateSymbol("✔︎"),
+		updater.WithUpgradedSymbol("↑"),
+		updater.WithDowngradedSymbol("↓"),
+		updater.WithDoneSymbol("✔︎"),
+		updater.WithTrashSymbol("✘"),
+		updater.WithUpToDateColor(lipgloss.Color("2")),   // green
+		updater.WithUpgradedColor(lipgloss.Color("2")),   // green
+		updater.WithDowngradedColor(lipgloss.Color("1")), // red
+		updater.WithDoneColor(lipgloss.Color("2")),       // green
+	)
 }
 
 // Run implements the kong entry point: conductor dispatches here after
