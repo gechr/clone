@@ -813,17 +813,9 @@ func formatOR(values []string) string {
 }
 
 func dedupeRequests(requests []repoRequest) []repoRequest {
-	seen := map[string]struct{}{}
-	out := make([]repoRequest, 0, len(requests))
-	for _, req := range requests {
-		key := req.Owner + "/" + req.Name + "#" + req.PullRequest + "=" + req.Dir
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		out = append(out, req)
-	}
-	return out
+	return xslices.UniqueFunc(requests, func(req repoRequest) string {
+		return req.Owner + "/" + req.Name + "#" + req.PullRequest + "=" + req.Dir
+	})
 }
 
 func detectDestinationClashes(targets []CloneTarget) error {

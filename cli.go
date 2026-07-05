@@ -13,6 +13,7 @@ import (
 	"github.com/gechr/conductor"
 	cli "github.com/gechr/conductor/cli/kong"
 	"github.com/gechr/x/ansi"
+	xslices "github.com/gechr/x/slices"
 	xstrings "github.com/gechr/x/strings"
 )
 
@@ -155,7 +156,7 @@ func (c *CLI) Normalize() {
 	case c.VCS == "":
 		c.VCS = vcsGit
 	}
-	c.Languages = uniqueFold(c.Languages)
+	c.Languages = xslices.UniqueFold(c.Languages)
 	if c.Quick && c.Depth == 0 {
 		c.Depth = 1
 	}
@@ -210,7 +211,7 @@ func (c *CLI) Validate() error {
 	for _, group := range languageGroups {
 		langs = append(langs, group...)
 	}
-	c.Languages = uniqueFold(langs)
+	c.Languages = xslices.UniqueFold(langs)
 	if len(c.Languages) > 0 {
 		c.LanguageFilters = [][]string{c.Languages}
 	}
@@ -312,38 +313,19 @@ func parseFilters(key string, values []string) ([][]string, error) {
 	return filters, nil
 }
 
-func uniqueFold(values []string) []string {
-	seen := make(map[string]struct{}, len(values))
-	out := make([]string, 0, len(values))
-	for _, value := range values {
-		key := strings.ToLower(strings.TrimSpace(value))
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		out = append(out, value)
-	}
-	return out
-}
-
 func uniqueTopicFilters(filters [][]string) [][]string {
-	seen := make(map[string]struct{}, len(filters))
-	out := make([][]string, 0, len(filters))
-	for _, group := range filters {
-		group = uniqueFold(group)
+	folded := make([][]string, len(filters))
+	for i, group := range filters {
+		folded[i] = xslices.UniqueFold(group)
+	}
+	return xslices.UniqueFunc(folded, func(group []string) string {
 		keyParts := make([]string, len(group))
 		for i, option := range group {
 			keyParts[i] = strings.ToLower(strings.TrimSpace(option))
 		}
 		slices.Sort(keyParts)
-		key := strings.Join(keyParts, "\x00")
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		out = append(out, group)
-	}
-	return out
+		return strings.Join(keyParts, "\x00")
+	})
 }
 
 // setMethodDefault overrides the --method flag's parse default with the
