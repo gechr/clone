@@ -149,7 +149,7 @@ func configureClog() {
 
 	// Align clive's self-update glyphs and colours with clone's own symbol set
 	// so the updater's lines don't clash with the emoji defaults.
-	updater.SetSymbols(
+	updater.SetConfig(
 		updater.WithUpToDateSymbol("✔︎"),
 		updater.WithUpgradedSymbol("↑"),
 		updater.WithDowngradedSymbol("↓"),
