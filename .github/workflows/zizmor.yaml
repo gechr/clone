@@ -20,4 +20,4 @@ jobs:
       contents: read
       actions: read
       security-events: write
-    uses: gechr/actions/.github/workflows/zizmor.yaml@854917523e0f0f5208e64c557bd645509944170b # v0.2.6
+    uses: gechr/actions/.github/workflows/zizmor.yaml@9b9d051d433bfeb57bf7f88c65c41ae3cb23e000 # v0.2.7
