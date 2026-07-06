@@ -12,7 +12,7 @@ require (
 	github.com/gechr/clib v0.5.11
 	github.com/gechr/clive v0.3.1
 	github.com/gechr/clog v0.11.18
-	github.com/gechr/conductor v0.0.9
+	github.com/gechr/conductor v0.0.10
 	github.com/gechr/x v0.2.13
 	github.com/stretchr/testify v1.11.1
 )
