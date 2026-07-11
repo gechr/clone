@@ -18,6 +18,7 @@ jobs:
   test:
     permissions:
       contents: read
-    uses: gechr/actions/.github/workflows/test.yaml@9b9d051d433bfeb57bf7f88c65c41ae3cb23e000 # v0.2.7
+    # clover: provider=auto
+    uses: gechr/actions/.github/workflows/test.yaml@b670f2c89a30f7ab050bcffbf2177459ca63520b # v0.2.8
     with:
       language: go

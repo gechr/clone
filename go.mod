@@ -1,6 +1,7 @@
 module github.com/gechr/clone
 
-go 1.26.4
+// clover: provider=auto
+go 1.26.5
 
 tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
@@ -9,11 +10,11 @@ require (
 	github.com/alecthomas/kong v1.15.0
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/cli/go-gh/v2 v2.13.0
-	github.com/gechr/clib v0.5.12
-	github.com/gechr/clive v0.3.2
-	github.com/gechr/clog v0.12.5
-	github.com/gechr/conductor v0.0.11
-	github.com/gechr/x v0.2.14
+	github.com/gechr/clib v0.6.6
+	github.com/gechr/clive v0.4.2
+	github.com/gechr/clog v0.13.1
+	github.com/gechr/conductor v0.1.0
+	github.com/gechr/x v0.2.16
 	github.com/stretchr/testify v1.11.1
 )
 
@@ -230,8 +231,8 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20260209203927-2842357ff358 // indirect
 	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/sys v0.46.0 // indirect
-	golang.org/x/term v0.44.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/term v0.45.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/tools v0.47.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
