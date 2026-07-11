@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	xslices "github.com/gechr/x/slices"
 	"github.com/stretchr/testify/require"
 )
 
@@ -705,10 +706,9 @@ func TestResolveCloneTargetsStarsFilter(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			got := make([]string, len(targets))
-			for i, target := range targets {
-				got[i] = target.Repo
-			}
+			got := xslices.Map(targets, func(target CloneTarget) string {
+				return target.Repo
+			})
 			require.Equal(t, test.want, got)
 		})
 	}

@@ -7,12 +7,12 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/gechr/clog"
 	"github.com/gechr/clog/fx"
+	xmaps "github.com/gechr/x/maps"
 	xslices "github.com/gechr/x/slices"
 )
 
@@ -292,15 +292,14 @@ func resolveViewerTargets(
 		return nil, baseDir, errSilent
 	}
 
-	requests := make([]repoRequest, 0, len(viewerRepos))
-	for _, repo := range viewerRepos {
-		requests = append(requests, repoRequest{
+	requests := xslices.Map(viewerRepos, func(repo repoInfo) repoRequest {
+		return repoRequest{
 			ExplicitOwner: true,
 			Host:          cli.forge.Host,
 			Owner:         repo.Owner,
 			Name:          repo.Name,
-		})
-	}
+		}
+	})
 
 	requests, err = applyNameFilters(requests, cli)
 	if err != nil {
@@ -533,13 +532,7 @@ func resolveCloneTargets(
 	selected := make([]repoRequest, 0, len(requests))
 	for _, req := range requests {
 		if req.Name == keywordAll {
-			names := make([]string, 0, len(repoIndex[req.Owner]))
-			for name := range repoIndex[req.Owner] {
-				names = append(names, name)
-			}
-			slices.SortFunc(names, func(a, b string) int {
-				return strings.Compare(strings.ToLower(a), strings.ToLower(b))
-			})
+			names := xmaps.KeysNatural(repoIndex[req.Owner])
 			for _, name := range names {
 				selected = append(selected, repoRequest{Owner: req.Owner, Name: name})
 			}
@@ -687,16 +680,10 @@ func requiresRepoQuery(cli *CLI, requests []repoRequest) bool {
 }
 
 func requestedOwners(requests []repoRequest) []string {
-	seen := map[string]struct{}{}
-	owners := make([]string, 0, len(requests))
-	for _, req := range requests {
-		if _, ok := seen[req.Owner]; ok {
-			continue
-		}
-		seen[req.Owner] = struct{}{}
-		owners = append(owners, req.Owner)
-	}
-	slices.Sort(owners)
+	owners := xslices.Unique(xslices.Map(requests, func(req repoRequest) string {
+		return req.Owner
+	}))
+	xslices.SortNatural(owners)
 	return owners
 }
 

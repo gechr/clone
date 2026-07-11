@@ -11,6 +11,7 @@ import (
 	"github.com/gechr/x/human"
 	xos "github.com/gechr/x/os"
 	xshell "github.com/gechr/x/shell"
+	xslices "github.com/gechr/x/slices"
 )
 
 // rangeFilter is an inclusive [min, max] integer range. Zero on either side
@@ -137,11 +138,7 @@ func formatCommand(bin string, args []string, dry bool) string {
 	if dry {
 		render = func(s string) string { return human.ContractHome(xshell.Quote(s)) }
 	}
-	parts := make([]string, 0, len(args)+1)
-	parts = append(parts, render(bin))
-	for _, arg := range args {
-		parts = append(parts, render(arg))
-	}
+	parts := append([]string{render(bin)}, xslices.Map(args, render)...)
 	return strings.Join(parts, " ")
 }
 

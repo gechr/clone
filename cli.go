@@ -314,16 +314,12 @@ func parseFilters(key string, values []string) ([][]string, error) {
 }
 
 func uniqueTopicFilters(filters [][]string) [][]string {
-	folded := make([][]string, len(filters))
-	for i, group := range filters {
-		folded[i] = xslices.UniqueFold(group)
-	}
+	folded := xslices.Map(filters, xslices.UniqueFold)
 	return xslices.UniqueFunc(folded, func(group []string) string {
-		keyParts := make([]string, len(group))
-		for i, option := range group {
-			keyParts[i] = strings.ToLower(strings.TrimSpace(option))
-		}
-		slices.Sort(keyParts)
+		keyParts := xslices.Map(group, func(option string) string {
+			return strings.ToLower(strings.TrimSpace(option))
+		})
+		slices.SortFunc(keyParts, xstrings.CompareNatural)
 		return strings.Join(keyParts, "\x00")
 	})
 }
