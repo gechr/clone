@@ -18,7 +18,6 @@ jobs:
   lint:
     permissions:
       contents: read
-    # clover: provider=auto
     uses: gechr/actions/.github/workflows/lint.yaml@b670f2c89a30f7ab050bcffbf2177459ca63520b # v0.2.8
     with:
       language: go
