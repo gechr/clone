@@ -13,6 +13,7 @@ import (
 	clib "github.com/gechr/clib/cli/kong"
 	"github.com/gechr/clib/help"
 	"github.com/gechr/clive"
+	"github.com/gechr/clive/notify"
 	"github.com/gechr/clive/updater"
 	"github.com/gechr/clive/updater/brew"
 	"github.com/gechr/clog"
@@ -65,7 +66,8 @@ func main() {
 			brew.WithFormula("clone"),
 			brew.WithTap("gechr/tap"),
 		),
-		ConfigureLog: configureClog,
+		NotifyOptions: []notify.Option{notify.WithOutdatedHintCommand("clone --self-update")},
+		ConfigureLog:  configureClog,
 	})
 
 	root := CLI{}
