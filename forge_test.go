@@ -52,6 +52,7 @@ func TestParseForgeURL(t *testing.T) {
 			name:  "github https commits page",
 			input: "https://github.com/jurplel/InstantSpaceSwitcher/commits/main/",
 			want: repoRequest{
+				Branch:        "main",
 				ExplicitOwner: true,
 				Host:          "github.com",
 				Owner:         "jurplel",
@@ -63,6 +64,30 @@ func TestParseForgeURL(t *testing.T) {
 			name:  "github https tree path",
 			input: "https://github.com/owner/repo/tree/develop/src/foo.go",
 			want: repoRequest{
+				ExplicitOwner: true,
+				Host:          "github.com",
+				Owner:         "owner",
+				Name:          "repo",
+				Source:        "https://github.com/owner/repo.git",
+			},
+		},
+		{
+			name:  "github branch tree",
+			input: "https://github.com/owner/repo/tree/develop",
+			want: repoRequest{
+				Branch:        "develop",
+				ExplicitOwner: true,
+				Host:          "github.com",
+				Owner:         "owner",
+				Name:          "repo",
+				Source:        "https://github.com/owner/repo.git",
+			},
+		},
+		{
+			name:  "github branch commits",
+			input: "https://github.com/owner/repo/commits/develop",
+			want: repoRequest{
+				Branch:        "develop",
 				ExplicitOwner: true,
 				Host:          "github.com",
 				Owner:         "owner",
@@ -102,6 +127,42 @@ func TestParseForgeURL(t *testing.T) {
 				Name:          "repo",
 				Source:        "https://github.com/owner/repo.git",
 				PullRequest:   "42",
+			},
+		},
+		{
+			name:  "github release tag",
+			input: "https://github.com/owner/repo/releases/tag/v1.2.3",
+			want: repoRequest{
+				ExplicitOwner: true,
+				Host:          "github.com",
+				Owner:         "owner",
+				Name:          "repo",
+				Source:        "https://github.com/owner/repo.git",
+				Tag:           "v1.2.3",
+			},
+		},
+		{
+			name:  "github release tag containing slash",
+			input: "https://github.com/owner/repo/releases/tag/release%2Fv1.0.0",
+			want: repoRequest{
+				ExplicitOwner: true,
+				Host:          "github.com",
+				Owner:         "owner",
+				Name:          "repo",
+				Source:        "https://github.com/owner/repo.git",
+				Tag:           "release/v1.0.0",
+			},
+		},
+		{
+			name:  "github commit",
+			input: "https://github.com/owner/repo/commit/83c74cc3e85aeaa4b63de7dc529909791de67206",
+			want: repoRequest{
+				Commit:        "83c74cc3e85aeaa4b63de7dc529909791de67206",
+				ExplicitOwner: true,
+				Host:          "github.com",
+				Owner:         "owner",
+				Name:          "repo",
+				Source:        "https://github.com/owner/repo.git",
 			},
 		},
 		{

@@ -7,14 +7,14 @@ tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
 require (
 	charm.land/lipgloss/v2 v2.0.5
-	github.com/alecthomas/kong v1.15.0
+	github.com/alecthomas/kong v1.16.0
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/cli/go-gh/v2 v2.13.0
 	github.com/gechr/clib v0.6.14
-	github.com/gechr/clive v0.4.3
-	github.com/gechr/clog v0.13.10
-	github.com/gechr/conductor v0.1.9
-	github.com/gechr/x v0.3.7
+	github.com/gechr/clive v0.4.4
+	github.com/gechr/clog v0.13.13
+	github.com/gechr/conductor v0.1.11
+	github.com/gechr/x v0.3.8
 	github.com/stretchr/testify v1.11.1
 )
 

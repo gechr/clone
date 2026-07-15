@@ -17,6 +17,8 @@ import (
 )
 
 type repoRequest struct {
+	Branch        string
+	Commit        string
 	Dir           string
 	ExplicitOwner bool
 	Host          string
@@ -24,12 +26,14 @@ type repoRequest struct {
 	Owner         string
 	PullRequest   string
 	Source        string
+	Tag           string
 }
 
 type CloneTarget struct {
 	BinGit        string
 	BinJJ         string
 	Branch        string
+	Commit        string
 	CustomDest    bool
 	Depth         int
 	Dest          string
@@ -45,6 +49,7 @@ type CloneTarget struct {
 	SingleBranch  bool
 	Slug          string
 	Source        string
+	Tag           string
 	VCS           string
 }
 
@@ -349,7 +354,8 @@ func buildTargetsFromRequests(
 		targets = append(targets, CloneTarget{
 			BinGit:        cli.binGit,
 			BinJJ:         cli.binJJ,
-			Branch:        cli.Branch,
+			Branch:        requestBranch(req, cli.Branch),
+			Commit:        req.Commit,
 			CustomDest:    req.Dir != "",
 			Depth:         cli.Depth,
 			Dest:          dest,
@@ -362,6 +368,7 @@ func buildTargetsFromRequests(
 			SingleBranch:  cli.Quick,
 			Slug:          slug,
 			Source:        resolveCloneSource(cli.Method, req, cli.forge),
+			Tag:           req.Tag,
 			VCS:           cli.VCS,
 		})
 	}
@@ -483,8 +490,20 @@ func resolveCloneTargets(
 	if hasPR && cli.Branch != "" {
 		return nil, "", fmt.Errorf("--branch and PR references are mutually exclusive")
 	}
+	for _, req := range requests {
+		if (req.Branch != "" || req.Tag != "" || req.Commit != "") && cli.Branch != "" {
+			return nil, "", fmt.Errorf(
+				"--branch cannot be combined with a ref URL",
+			)
+		}
+	}
 	if hasPR && cli.Mirror {
 		return nil, "", fmt.Errorf("--mirror is not supported with PR references")
+	}
+	for _, req := range requests {
+		if req.Commit != "" && cli.Mirror {
+			return nil, "", fmt.Errorf("--mirror is not supported with commit URLs")
+		}
 	}
 
 	baseDir, err := resolveBaseDirectory(cli, envCfg.TempDir)
@@ -614,7 +633,8 @@ func resolveCloneTargets(
 		target := CloneTarget{
 			BinGit:        cli.binGit,
 			BinJJ:         cli.binJJ,
-			Branch:        cli.Branch,
+			Branch:        requestBranch(req, cli.Branch),
+			Commit:        req.Commit,
 			CustomDest:    req.Dir != "",
 			Depth:         cli.Depth,
 			Dest:          dest,
@@ -626,6 +646,7 @@ func resolveCloneTargets(
 			SingleBranch:  cli.Quick,
 			Slug:          slug,
 			Source:        resolveCloneSource(cli.Method, req, cli.forge),
+			Tag:           req.Tag,
 			VCS:           cli.VCS,
 		}
 
@@ -801,8 +822,18 @@ func formatOR(values []string) string {
 
 func dedupeRequests(requests []repoRequest) []repoRequest {
 	return xslices.UniqueFunc(requests, func(req repoRequest) string {
-		return req.Owner + "/" + req.Name + "#" + req.PullRequest + "=" + req.Dir
+		return req.Owner + "/" + req.Name + "#" + req.PullRequest + "@" + req.Branch + ":" + req.Tag + ":" + req.Commit + "=" + req.Dir
 	})
+}
+
+func requestBranch(req repoRequest, fallback string) string {
+	if req.Tag != "" {
+		return req.Tag
+	}
+	if req.Branch != "" {
+		return req.Branch
+	}
+	return fallback
 }
 
 func detectDestinationClashes(targets []CloneTarget) error {

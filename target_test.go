@@ -263,6 +263,105 @@ func TestResolveCloneTargetsPRBranchConflict(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestResolveCloneTargetsReleaseTag(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:      []string{"https://github.com/owner/repo/releases/tag/v1.2.3"},
+		Method:     methodSSH,
+		VCS:        vcsGit,
+		Visibility: "all",
+	}
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.NoError(t, err)
+	require.Len(t, targets, 1)
+	require.Equal(t, "v1.2.3", targets[0].Branch)
+	require.Equal(t, "v1.2.3", targets[0].Tag)
+	require.Equal(t, "https://github.com/owner/repo.git", targets[0].Source)
+}
+
+func TestResolveCloneTargetsReleaseTagBranchConflict(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Repos:      []string{"https://github.com/owner/repo/releases/tag/v1.2.3"},
+		Branch:     "main",
+		Method:     methodSSH,
+		VCS:        vcsGit,
+		Visibility: "all",
+	}
+
+	_, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.EqualError(t, err, "--branch cannot be combined with a ref URL")
+}
+
+func TestResolveCloneTargetsCommit(t *testing.T) {
+	t.Parallel()
+
+	const commit = "83c74cc3e85aeaa4b63de7dc529909791de67206"
+	cli := &CLI{
+		Repos:      []string{"https://github.com/owner/repo/commit/" + commit},
+		Method:     methodSSH,
+		VCS:        vcsGit,
+		Visibility: "all",
+	}
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.NoError(t, err)
+	require.Len(t, targets, 1)
+	require.Empty(t, targets[0].Branch)
+	require.Equal(t, commit, targets[0].Commit)
+	require.Equal(t, "https://github.com/owner/repo.git", targets[0].Source)
+}
+
+func TestResolveCloneTargetsCommitConflicts(t *testing.T) {
+	t.Parallel()
+
+	const repo = "https://github.com/owner/repo/commit/83c74cc3e85aeaa4b63de7dc529909791de67206"
+	tests := []struct {
+		name string
+		cli  *CLI
+		want string
+	}{
+		{
+			name: "branch",
+			cli: &CLI{
+				Repos: []string{
+					repo,
+				},
+				Branch:     "main",
+				Method:     methodSSH,
+				VCS:        vcsGit,
+				Visibility: "all",
+			},
+			want: "--branch cannot be combined with a ref URL",
+		},
+		{
+			name: "mirror",
+			cli: &CLI{
+				Repos: []string{
+					repo,
+				},
+				Mirror:     true,
+				Method:     methodSSH,
+				VCS:        vcsGit,
+				Visibility: "all",
+			},
+			want: "--mirror is not supported with commit URLs",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, _, err := resolveCloneTargets(context.Background(), test.cli, fakeRepoLister{})
+			require.EqualError(t, err, test.want)
+		})
+	}
+}
+
 func TestResolveCloneTargetsRejectsNonPositivePRNumbers(t *testing.T) {
 	t.Parallel()
 

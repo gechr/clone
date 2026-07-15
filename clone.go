@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,7 +25,10 @@ import (
 	xstrings "github.com/gechr/x/strings"
 )
 
-const minOverallProgressRepos = 5
+const (
+	minOverallProgressRepos = 5
+	shortCommitLength       = 8
+)
 
 // jjNoSignArgs skips signing the working-copy commit jj creates during
 // init/import. Avoids hammering gpg-agent's secmem under parallel clones.
@@ -84,6 +88,7 @@ type Cloner struct {
 	BinGit       string
 	BinJJ        string
 	Branch       string
+	Commit       string
 	CustomDest   bool
 	Depth        int
 	Dest         string
@@ -96,6 +101,7 @@ type Cloner struct {
 	SingleBranch bool
 	Slug         string
 	Source       string
+	Tag          string
 	VCS          string
 
 	Done bool
@@ -107,6 +113,7 @@ func NewCloner(target CloneTarget) *Cloner {
 		BinGit:       target.BinGit,
 		BinJJ:        target.BinJJ,
 		Branch:       target.Branch,
+		Commit:       target.Commit,
 		CustomDest:   target.CustomDest,
 		Depth:        target.Depth,
 		Dest:         target.Dest,
@@ -119,6 +126,7 @@ func NewCloner(target CloneTarget) *Cloner {
 		SingleBranch: target.SingleBranch,
 		Slug:         target.Slug,
 		Source:       target.Source,
+		Tag:          target.Tag,
 		VCS:          target.VCS,
 	}
 }
@@ -282,31 +290,102 @@ func cloneLinks(cloners []*Cloner) []clog.Link {
 	return links
 }
 
-func (c *Cloner) LinkKey() string {
-	if c.PRLabel != "" {
-		return "pr"
+func addCloneRefLinks(e *clog.Event, cloners []*Cloner) *clog.Event {
+	refs := make(map[string][]clog.Link)
+	for _, c := range cloners {
+		if key := c.RefKey(); key != "" {
+			refs[key] = append(refs[key], clog.Link{Text: c.RefText(), URL: c.RefURL()})
+		}
 	}
+	for _, key := range []string{"pr", "commit", "tag", "branch"} {
+		links := refs[key]
+		switch len(links) {
+		case 0:
+		case 1:
+			e = e.Link(key, links[0].URL, links[0].Text)
+		default:
+			e = e.Links(refPlural(key), links)
+		}
+	}
+	return e
+}
+
+func refPlural(key string) string {
+	if key == "branch" {
+		return "branches"
+	}
+	return key + "s"
+}
+
+func (c *Cloner) LinkKey() string {
 	return "repository"
 }
 
 func (c *Cloner) LinkText() string {
-	if c.PRLabel != "" {
-		return c.Slug + "#" + c.PRLabel
+	if c.Label == "" {
+		return c.Slug
 	}
 	return c.Label
 }
 
 func (c *Cloner) LinkURL() string {
-	if c.PRLabel != "" && c.RepoURL != "" {
-		return strings.TrimRight(c.RepoURL, pathSep) + "/pull/" + c.PRLabel
-	}
 	return c.RepoURL
+}
+
+func (c *Cloner) RefKey() string {
+	switch {
+	case c.PRLabel != "":
+		return "pr"
+	case c.Commit != "":
+		return "commit"
+	case c.Tag != "":
+		return "tag"
+	case c.Branch != "":
+		return "branch"
+	default:
+		return ""
+	}
+}
+
+func (c *Cloner) RefText() string {
+	switch c.RefKey() {
+	case "pr":
+		return c.PRLabel
+	case "commit":
+		return xstrings.Truncate(c.Commit, shortCommitLength, "")
+	case "tag":
+		return c.Tag
+	case "branch":
+		return c.Branch
+	default:
+		return ""
+	}
+}
+
+func (c *Cloner) RefURL() string {
+	if c.RepoURL == "" {
+		return ""
+	}
+	base := strings.TrimRight(c.RepoURL, pathSep)
+	switch c.RefKey() {
+	case "pr":
+		return base + "/pull/" + url.PathEscape(c.PRLabel)
+	case "commit":
+		return base + "/commit/" + url.PathEscape(c.Commit)
+	case "tag":
+		return base + "/releases/tag/" + url.PathEscape(c.Tag)
+	case "branch":
+		return base + "/tree/" + url.PathEscape(c.Branch)
+	default:
+		return ""
+	}
 }
 
 func logCloneFailed(failed []*Cloner) {
 	links := cloneLinks(failed)
 	if len(links) == 1 {
 		e := clog.Error().Link(failed[0].LinkKey(), links[0].URL, links[0].Text)
+		e = addCloneRefLinks(e, failed)
 		if failed[0].Err != nil {
 			e = e.Str("reason", failed[0].Err.Error())
 		}
@@ -316,6 +395,7 @@ func logCloneFailed(failed []*Cloner) {
 	e := clog.Error().
 		Links("repositories", links).
 		Int("total", len(links))
+	e = addCloneRefLinks(e, failed)
 	for _, c := range failed {
 		if c.Err != nil {
 			e = e.Str(c.Label, c.Err.Error())
@@ -348,6 +428,7 @@ func logCloneSucceeded(baseDir string, succeeded []*Cloner) {
 	links := cloneLinks(succeeded)
 	if len(links) == 1 {
 		e := clog.Log(LevelSuccess).Link(succeeded[0].LinkKey(), links[0].URL, links[0].Text)
+		e = addCloneRefLinks(e, succeeded)
 		if baseDir != "" {
 			e = e.Path("directory", succeeded[0].Dest)
 		}
@@ -355,6 +436,7 @@ func logCloneSucceeded(baseDir string, succeeded []*Cloner) {
 	} else {
 		e := clog.Log(LevelSuccess).
 			Links("repositories", links)
+		e = addCloneRefLinks(e, succeeded)
 		if baseDir != "" {
 			e = e.Path("directory", baseDir)
 		}
@@ -519,13 +601,17 @@ func prepareCloners(
 	}
 	if opts.Warn && len(skipped) > 0 {
 		links := make([]clog.Link, len(skipped))
+		clones := make([]*Cloner, len(skipped))
 		for i, t := range skipped {
 			links[i] = clog.Link{Text: t.Label, URL: t.RepoURL}
+			clones[i] = NewCloner(t)
 		}
 		if len(links) == 1 {
-			clog.Warn().Link("repository", links[0].URL, links[0].Text).Msg("Skipping")
+			e := clog.Warn().Link("repository", links[0].URL, links[0].Text)
+			addCloneRefLinks(e, clones).Msg("Skipping")
 		} else {
-			clog.Warn().Links("repositories", links).Msg("Skipping")
+			e := clog.Warn().Links("repositories", links)
+			addCloneRefLinks(e, clones).Msg("Skipping")
 		}
 	}
 	return cloners, fetchers, nil
@@ -622,6 +708,9 @@ func executeWithProgress(
 			Symbol("·").
 			Spinner().
 			Link(cloner.LinkKey(), cloner.LinkURL(), cloner.LinkText())
+		if key := cloner.RefKey(); key != "" {
+			b = b.Link(key, cloner.RefURL(), cloner.RefText())
+		}
 		if cloner.CustomDest {
 			b = b.Path("destination", cloner.Dest)
 		}
@@ -723,6 +812,14 @@ func (c *Cloner) Run(
 			return prErr
 		}
 	}
+	if c.Commit != "" {
+		if commitErr := c.checkoutCommit(ctx); commitErr != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			return commitErr
+		}
+	}
 
 	c.Done = true
 	if update != nil {
@@ -758,6 +855,29 @@ func (c *Cloner) checkoutPR(ctx context.Context) error {
 	}
 
 	return runCommandInDir(ctx, c.Dest, c.BinGit, []string{"checkout", c.PRHeadRef, "--quiet"})
+}
+
+func (c *Cloner) checkoutCommit(ctx context.Context) error {
+	if err := runCommandInDir(ctx, c.Dest, c.BinGit, []string{
+		"fetch", "origin", c.Commit, "--no-tags", "--quiet",
+	}); err != nil {
+		return fmt.Errorf("fetching commit %s: %w", c.Commit, err)
+	}
+
+	if c.VCS == vcsJJ {
+		importArgs := append([]string{}, jjNoSignArgs...)
+		importArgs = append(importArgs, "git", "import")
+		if err := runCommandInDir(ctx, c.Dest, c.BinJJ, importArgs); err != nil {
+			return fmt.Errorf("importing git refs: %w", err)
+		}
+		newArgs := append([]string{}, jjNoSignArgs...)
+		newArgs = append(newArgs, "new", c.Commit, "--quiet")
+		return runCommandInDir(ctx, c.Dest, c.BinJJ, newArgs)
+	}
+
+	return runCommandInDir(ctx, c.Dest, c.BinGit, []string{
+		"checkout", c.Commit, "--quiet",
+	})
 }
 
 func (c *Cloner) runJJClone(
@@ -885,6 +1005,24 @@ func (c *Cloner) DryRunCommand() string {
 				lines,
 				formatCommand(c.BinGit, []string{"-C", c.Dest, "checkout", c.PRHeadRef}, true),
 			)
+		}
+	}
+
+	if c.Commit != "" {
+		lines = append(lines, formatCommand(c.BinGit, []string{
+			"-C", c.Dest, "fetch", "origin", c.Commit, "--no-tags",
+		}, true))
+		if c.VCS == vcsJJ {
+			importArgs := append([]string{}, jjNoSignArgs...)
+			importArgs = append(importArgs, "-R", c.Dest, "git", "import")
+			lines = append(lines, formatCommand(c.BinJJ, importArgs, true))
+			newArgs := append([]string{}, jjNoSignArgs...)
+			newArgs = append(newArgs, "-R", c.Dest, "new", c.Commit)
+			lines = append(lines, formatCommand(c.BinJJ, newArgs, true))
+		} else {
+			lines = append(lines, formatCommand(c.BinGit, []string{
+				"-C", c.Dest, "checkout", c.Commit,
+			}, true))
 		}
 	}
 
@@ -1037,8 +1175,11 @@ func formatCloneError(err error, stderrText string) error {
 func knownError(text string) string {
 	lower := strings.ToLower(text)
 	switch {
-	case strings.Contains(lower, "repository not found"),
-		strings.Contains(lower, "could not read from remote repository"):
+	case xstrings.ContainsAny(
+		lower,
+		"repository not found",
+		"could not read from remote repository",
+	):
 		return "repository not found or insufficient permissions"
 	case strings.Contains(lower, "could not resolve host"):
 		return "could not resolve host"

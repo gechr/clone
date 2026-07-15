@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+
+	xstrings "github.com/gechr/x/strings"
 )
 
 // forgeConfig describes how to construct clone URLs for a given forge.
@@ -170,7 +172,10 @@ func forgeResult(scheme, host, owner, name string, appendDotGit bool) (repoReque
 //	owner/repo
 //	owner/repo/pull/42
 //	owner/repo#42
-//	owner/repo/tree/main/...
+//	owner/repo/tree/main
+//	owner/repo/commits/main
+//	owner/repo/releases/tag/v1.2.3
+//	owner/repo/commit/83c74cc3e85aeaa4b63de7dc529909791de67206
 func parseGitHub(path, scheme, host string) (repoRequest, bool) {
 	clean := strings.TrimSuffix(path, pathSep)
 
@@ -197,6 +202,15 @@ func parseGitHub(path, scheme, host string) (repoRequest, bool) {
 	req, ok := forgeResult(scheme, host, segments[0], segments[1], true)
 	if !ok {
 		return repoRequest{}, false
+	}
+	if len(segments) >= 4 && segments[2] == "releases" && segments[3] == "tag" {
+		req.Tag = strings.Join(segments[4:], pathSep)
+	}
+	if len(segments) >= 4 && segments[2] == "commit" && xstrings.IsGitCommit(segments[3]) {
+		req.Commit = segments[3]
+	}
+	if len(segments) == 4 && (segments[2] == "tree" || segments[2] == "commits") {
+		req.Branch = segments[3]
 	}
 	req.PullRequest = pr
 	return req, true

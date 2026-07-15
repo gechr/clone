@@ -127,6 +127,15 @@ clone --method=https owner/repo
 # Clone from a GitHub URL
 clone https://github.com/owner/repo
 
+# Clone and check out a branch from a GitHub URL
+clone https://github.com/owner/repo/tree/develop
+
+# Clone and check out a GitHub release tag
+clone https://github.com/owner/repo/releases/tag/v1.2.3
+
+# Clone and check out a specific commit
+clone https://github.com/owner/repo/commit/83c74cc3e85aeaa4b63de7dc529909791de67206
+
 # Clone a pull request (checks out the PR branch)
 clone https://github.com/owner/repo/pull/21
 

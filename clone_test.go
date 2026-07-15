@@ -167,15 +167,18 @@ func TestClonerLinkUsesPRIdentity(t *testing.T) {
 	t.Parallel()
 
 	cloner := NewCloner(CloneTarget{
-		Label:   "repo",
+		Label:   "owner/repo",
 		Slug:    "owner/repo",
 		RepoURL: "https://github.com/owner/repo",
 		PRLabel: "21",
 	})
 
-	require.Equal(t, "pr", cloner.LinkKey())
-	require.Equal(t, "owner/repo#21", cloner.LinkText())
-	require.Equal(t, "https://github.com/owner/repo/pull/21", cloner.LinkURL())
+	require.Equal(t, "repository", cloner.LinkKey())
+	require.Equal(t, "owner/repo", cloner.LinkText())
+	require.Equal(t, "https://github.com/owner/repo", cloner.LinkURL())
+	require.Equal(t, "pr", cloner.RefKey())
+	require.Equal(t, "21", cloner.RefText())
+	require.Equal(t, "https://github.com/owner/repo/pull/21", cloner.RefURL())
 }
 
 func TestClonerLinkUsesRepositoryIdentity(t *testing.T) {
@@ -190,6 +193,63 @@ func TestClonerLinkUsesRepositoryIdentity(t *testing.T) {
 	require.Equal(t, "repository", cloner.LinkKey())
 	require.Equal(t, "repo", cloner.LinkText())
 	require.Equal(t, "https://github.com/owner/repo", cloner.LinkURL())
+	require.Empty(t, cloner.RefKey())
+	require.Empty(t, cloner.RefText())
+	require.Empty(t, cloner.RefURL())
+}
+
+func TestClonerRefLinks(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		cloner  *Cloner
+		wantKey string
+		wantURL string
+	}{
+		{
+			name: "commit",
+			cloner: NewCloner(CloneTarget{
+				Commit:  "83c74cc3e85aeaa4b63de7dc529909791de67206",
+				RepoURL: "https://github.com/owner/repo",
+			}),
+			wantKey: "commit",
+			wantURL: "https://github.com/owner/repo/commit/83c74cc3e85aeaa4b63de7dc529909791de67206",
+		},
+		{
+			name: "tag",
+			cloner: NewCloner(CloneTarget{
+				Branch:  "release/v1.2.3",
+				Tag:     "release/v1.2.3",
+				RepoURL: "https://github.com/owner/repo",
+			}),
+			wantKey: "tag",
+			wantURL: "https://github.com/owner/repo/releases/tag/release%2Fv1.2.3",
+		},
+		{
+			name: "branch",
+			cloner: NewCloner(CloneTarget{
+				Branch:  "feature/logging",
+				RepoURL: "https://github.com/owner/repo",
+			}),
+			wantKey: "branch",
+			wantURL: "https://github.com/owner/repo/tree/feature%2Flogging",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, test.wantKey, test.cloner.RefKey())
+			wantText := test.cloner.Branch
+			if test.cloner.Commit != "" {
+				wantText = "83c74cc3"
+			}
+			require.Equal(t, wantText, test.cloner.RefText())
+			require.Equal(t, test.wantURL, test.cloner.RefURL())
+		})
+	}
 }
 
 func TestClonerDryRunCommand(t *testing.T) {
@@ -238,6 +298,19 @@ func TestClonerDryRunCommand(t *testing.T) {
 			want: "git clone git@github.com:owner/repo.git repo" + dryRunSep() + "" +
 				"git -C repo fetch origin refs/pull/21/head:feature-branch --no-tags" + dryRunSep() + "" +
 				"git -C repo checkout feature-branch",
+		},
+		{
+			name: "git with commit",
+			cloner: &Cloner{
+				BinGit: "git",
+				Commit: "83c74cc3e85aeaa4b63de7dc529909791de67206",
+				Source: "git@github.com:owner/repo.git",
+				Dest:   "repo",
+				VCS:    vcsGit,
+			},
+			want: "git clone git@github.com:owner/repo.git repo" + dryRunSep() + "" +
+				"git -C repo fetch origin 83c74cc3e85aeaa4b63de7dc529909791de67206 --no-tags" + dryRunSep() + "" +
+				"git -C repo checkout 83c74cc3e85aeaa4b63de7dc529909791de67206",
 		},
 		{
 			name: "jj with PR",
