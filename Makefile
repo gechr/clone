@@ -14,6 +14,7 @@ fmt:
 	@rumdl fmt --quiet
 	@$(GO) fix ./...
 	@$(GO) tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint fmt --enable=gci,golines,gofumpt
+	@$(GO) tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint run --fix -c .golangci.ruleguard.yml
 
 DIST_DIR ?= dist
 
