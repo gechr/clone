@@ -100,7 +100,11 @@ linters:
     gocognit:
       min-complexity: 40
     gocritic:
+      enabled-checks:
+        - ruleguard
       settings:
+        ruleguard:
+          rules: gorules/rules.go
         captLocal:
           paramsOnly: false
         underef:
