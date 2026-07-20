@@ -278,7 +278,7 @@ func TestParseArgsRejectsExplicitAliasWithExplicitVCS(t *testing.T) {
 func TestConfigureClogWritesErrorsToStderr(t *testing.T) {
 	originalStdout := os.Stdout
 	originalStderr := os.Stderr
-	originalLogger := clog.Default
+	originalLogger := clog.Default()
 
 	stdoutR, stdoutW, err := os.Pipe()
 	require.NoError(t, err)
@@ -287,12 +287,12 @@ func TestConfigureClogWritesErrorsToStderr(t *testing.T) {
 
 	os.Stdout = stdoutW
 	os.Stderr = stderrW
-	clog.Default = clog.New(clog.Stdout(clog.ColorNever))
+	clog.SetDefault(clog.New(clog.Stdout(clog.ColorNever)))
 
 	t.Cleanup(func() {
 		os.Stdout = originalStdout
 		os.Stderr = originalStderr
-		clog.Default = originalLogger
+		clog.SetDefault(originalLogger)
 		_ = stdoutR.Close()
 		_ = stdoutW.Close()
 		_ = stderrR.Close()

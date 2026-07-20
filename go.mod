@@ -10,11 +10,11 @@ require (
 	github.com/alecthomas/kong v1.16.0
 	github.com/caarlos0/env/v11 v11.4.1
 	github.com/cli/go-gh/v2 v2.13.0
-	github.com/gechr/clib v0.6.14
-	github.com/gechr/clive v0.4.4
-	github.com/gechr/clog v0.13.13
-	github.com/gechr/conductor v0.1.11
-	github.com/gechr/x v0.3.8
+	github.com/gechr/clib v0.7.7
+	github.com/gechr/clive v0.4.6
+	github.com/gechr/clog v0.14.1
+	github.com/gechr/conductor v0.1.13
+	github.com/gechr/x v0.4.2
 	github.com/stretchr/testify v1.11.1
 )
 
