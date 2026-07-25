@@ -1,29 +1,14 @@
 package main
 
+// Host, forge, and scheme names live in github.com/gechr/forge - referencing
+// them there rather than redeclaring them here keeps one source of truth, so a
+// change upstream cannot leave clone asserting a stale value.
 const (
-	minRepoSegments = 2   // owner/repo
-	pathSep         = "/" // URL path separator
-	dotGit          = ".git"
-	atMe            = "@me" // GitHub alias for the authenticated user
+	pathSep = "/" // URL path separator
+	dotGit  = ".git"
+	atMe    = "@me" // GitHub alias for the authenticated user
 
 	keyOwner  = "owner"
 	keySource = "source"
 	keyStars  = "stars"
-
-	hostAzureDevOps = "dev.azure.com"
-	hostBitbucket   = "bitbucket.org"
-	hostCodeberg    = "codeberg.org"
-	hostGitHub      = "github.com"
-	hostGitLab      = "gitlab.com"
-	hostSourcehut   = "git.sr.ht"
-
-	forgeBitbucket = "bitbucket"
-	forgeCodeberg  = "codeberg"
-	forgeGitHub    = "github"
-	forgeGitLab    = "gitlab"
-	forgeSourcehut = "sourcehut"
-
-	schemeGit   = "git"
-	schemeHTTPS = "https"
-	schemeSSH   = "ssh"
 )

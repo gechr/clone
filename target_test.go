@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gechr/forge"
 	xslices "github.com/gechr/x/slices"
 	"github.com/stretchr/testify/require"
 )
@@ -836,7 +837,7 @@ func TestResolveCloneTargetsForgeBareRepoUsesForgeHost(t *testing.T) {
 		VCS:         vcsGit,
 		Visibility:  keywordAll,
 		Parallelism: defaultParallelism,
-		Forge:       forgeGitLab,
+		Forge:       forge.ForgeGitLab,
 	}
 	require.NoError(t, cli.Validate())
 
@@ -857,7 +858,7 @@ func TestResolveCloneTargetsForgeHTTPSMethod(t *testing.T) {
 		VCS:         vcsGit,
 		Visibility:  keywordAll,
 		Parallelism: defaultParallelism,
-		Forge:       forgeCodeberg,
+		Forge:       forge.ForgeCodeberg,
 	}
 	require.NoError(t, cli.Validate())
 
@@ -876,7 +877,7 @@ func TestResolveCloneTargetsForgeSourcehutNoGitSuffix(t *testing.T) {
 		VCS:         vcsGit,
 		Visibility:  keywordAll,
 		Parallelism: defaultParallelism,
-		Forge:       forgeSourcehut,
+		Forge:       forge.ForgeSourcehut,
 	}
 	require.NoError(t, cli.Validate())
 
@@ -914,7 +915,7 @@ func TestResolveCloneTargetsForgeURLArgOverridesForge(t *testing.T) {
 		VCS:         vcsGit,
 		Visibility:  keywordAll,
 		Parallelism: defaultParallelism,
-		Forge:       forgeGitLab,
+		Forge:       forge.ForgeGitLab,
 	}
 	require.NoError(t, cli.Validate())
 
@@ -934,7 +935,7 @@ func TestResolveCloneTargetsForgeRejectsAll(t *testing.T) {
 		VCS:         vcsGit,
 		Visibility:  keywordAll,
 		Parallelism: defaultParallelism,
-		Forge:       forgeGitLab,
+		Forge:       forge.ForgeGitLab,
 	}
 	require.NoError(t, cli.Validate())
 
@@ -952,7 +953,7 @@ func TestResolveCloneTargetsForgeRejectsPR(t *testing.T) {
 		VCS:         vcsGit,
 		Visibility:  keywordAll,
 		Parallelism: defaultParallelism,
-		Forge:       forgeGitLab,
+		Forge:       forge.ForgeGitLab,
 	}
 	require.NoError(t, cli.Validate())
 
@@ -970,7 +971,7 @@ func TestResolveCloneTargetsForgeRejectsAtMe(t *testing.T) {
 		VCS:         vcsGit,
 		Visibility:  keywordAll,
 		Parallelism: defaultParallelism,
-		Forge:       forgeGitLab,
+		Forge:       forge.ForgeGitLab,
 	}
 	require.NoError(t, cli.Validate())
 

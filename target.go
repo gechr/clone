@@ -391,7 +391,7 @@ func resolveCloneTargets(
 	if cli.forge.Host == "" {
 		cli.forge, _ = forge.Resolve("")
 	}
-	nonGitHub := cli.forge.Host != hostGitHub
+	nonGitHub := cli.forge.Host != forge.HostGitHub
 
 	defaultOwner := resolveOwnerAlias(strings.TrimSpace(cli.Owner), envCfg.OwnerAliases)
 	if strings.EqualFold(defaultOwner, atMe) {

@@ -3,6 +3,7 @@ package main
 import (
 	"testing"
 
+	"github.com/gechr/forge"
 	"github.com/stretchr/testify/require"
 )
 
@@ -136,7 +137,7 @@ func TestCLIValidateForgeDefaultsToGitHub(t *testing.T) {
 	}
 
 	require.NoError(t, cli.Validate())
-	require.Equal(t, hostGitHub, cli.forge.Host)
+	require.Equal(t, forge.HostGitHub, cli.forge.Host)
 }
 
 func TestCLIValidateForgeAcceptsName(t *testing.T) {
@@ -150,7 +151,7 @@ func TestCLIValidateForgeAcceptsName(t *testing.T) {
 	}
 
 	require.NoError(t, cli.Validate())
-	require.Equal(t, hostGitLab, cli.forge.Host)
+	require.Equal(t, forge.HostGitLab, cli.forge.Host)
 }
 
 func TestCLIValidateForgeAcceptsCustomHost(t *testing.T) {

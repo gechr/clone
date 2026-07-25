@@ -21,8 +21,8 @@ import (
 const (
 	defaultParallelism = 20
 	keywordAll         = "all"
-	methodSSH          = schemeSSH
-	methodHTTPS        = schemeHTTPS
+	methodSSH          = forge.SchemeSSH
+	methodHTTPS        = forge.SchemeHTTPS
 	nameGit            = "git"
 	nameJJ             = "jj"
 	vcsGit             = nameGit
@@ -251,7 +251,7 @@ func (c *CLI) Validate() error {
 }
 
 func (c *CLI) validateForgeFlags() error {
-	if c.forge.Host == hostGitHub {
+	if c.forge.Host == forge.HostGitHub {
 		return nil
 	}
 	var offending []string
