@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -530,4 +532,153 @@ func TestPrepareClonersWithoutFetch(t *testing.T) {
 	require.Len(t, cloners, 1)
 	require.Equal(t, "owner/new-repo", cloners[0].Slug)
 	require.Empty(t, fetchers)
+}
+
+// mkBareRepo lays out the parts of a bare repository that identify it, which
+// is how a --mirror clone is recognized: it has no .git marker to find.
+func mkBareRepo(t *testing.T, dir string) string {
+	t.Helper()
+
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "objects"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "refs"), 0o755))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(dir, "HEAD"), []byte("ref: refs/heads/main\n"), 0o644),
+	)
+	return dir
+}
+
+func TestIsReplaceable(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		setup func(t *testing.T, dir string) string
+		want  bool
+	}{
+		{
+			name: "git checkout",
+			setup: func(t *testing.T, dir string) string {
+				t.Helper()
+				require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o755))
+				return dir
+			},
+			want: true,
+		},
+		{
+			name: "jj checkout",
+			setup: func(t *testing.T, dir string) string {
+				t.Helper()
+				require.NoError(t, os.MkdirAll(filepath.Join(dir, ".jj"), 0o755))
+				return dir
+			},
+			want: true,
+		},
+		{
+			name:  "bare mirror clone",
+			setup: func(t *testing.T, dir string) string { t.Helper(); return mkBareRepo(t, dir) },
+			want:  true,
+		},
+		{
+			name:  "empty directory",
+			setup: func(t *testing.T, dir string) string { t.Helper(); return dir },
+			want:  true,
+		},
+		{
+			name: "directory holding unrelated files",
+			setup: func(t *testing.T, dir string) string {
+				t.Helper()
+				require.NoError(
+					t,
+					os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("hi"), 0o644),
+				)
+				return dir
+			},
+			want: false,
+		},
+		{
+			name: "a file, not a directory",
+			setup: func(t *testing.T, dir string) string {
+				t.Helper()
+				path := filepath.Join(dir, "file")
+				require.NoError(t, os.WriteFile(path, []byte("hi"), 0o644))
+				return path
+			},
+			want: false,
+		},
+		{
+			name: "missing path",
+			setup: func(t *testing.T, dir string) string {
+				t.Helper()
+				return filepath.Join(dir, "nonexistent")
+			},
+			want: false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			require.Equal(t, test.want, isReplaceable(test.setup(t, t.TempDir())))
+		})
+	}
+}
+
+func TestPrepareClonersForceRefusesNonClone(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	keep := filepath.Join(dir, "notes.txt")
+	require.NoError(t, os.WriteFile(keep, []byte("important"), 0o644))
+
+	targets := []CloneTarget{
+		{BinGit: "git", Slug: "owner/repo", Label: "owner/repo", Dest: dir, VCS: vcsGit},
+	}
+
+	_, _, err := prepareCloners(targets, prepareCloneOpts{Force: true})
+	require.EqualError(
+		t,
+		err,
+		"refusing to overwrite "+dir+": not a clone (remove it yourself if you meant to replace it)",
+	)
+	require.FileExists(t, keep, "the refused directory must be left untouched")
+}
+
+func TestPrepareClonersForceReplacesClone(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, ".git"), 0o755))
+
+	targets := []CloneTarget{
+		{BinGit: "git", Slug: "owner/repo", Label: "owner/repo", Dest: dir, VCS: vcsGit},
+	}
+
+	cloners, _, err := prepareCloners(targets, prepareCloneOpts{Force: true})
+	require.NoError(t, err)
+	require.Len(t, cloners, 1)
+	require.NoDirExists(t, dir, "an existing clone is removed before recloning")
+}
+
+func TestPrepareClonersForceReplacesMirror(t *testing.T) {
+	t.Parallel()
+
+	dir := mkBareRepo(t, t.TempDir())
+
+	targets := []CloneTarget{
+		{
+			BinGit: "git",
+			Slug:   "owner/repo",
+			Label:  "owner/repo",
+			Dest:   dir,
+			Mirror: true,
+			VCS:    vcsGit,
+		},
+	}
+
+	cloners, _, err := prepareCloners(targets, prepareCloneOpts{Force: true})
+	require.NoError(t, err)
+	require.Len(t, cloners, 1)
+	require.NoDirExists(t, dir, "an existing mirror clone is removed before recloning")
 }

@@ -593,6 +593,12 @@ func prepareCloners(
 			continue
 		}
 		if exists {
+			if !isReplaceable(target.Dest) {
+				return nil, nil, fmt.Errorf(
+					"refusing to overwrite %s: not a clone (remove it yourself if you meant to replace it)",
+					target.Dest,
+				)
+			}
 			if err := os.RemoveAll(target.Dest); err != nil {
 				return nil, nil, fmt.Errorf("removing existing clone %s: %w", target.Dest, err)
 			}
@@ -1159,6 +1165,36 @@ func ensureCloneParent(dest string) error {
 		return nil
 	}
 	return os.MkdirAll(parent, 0o755)
+}
+
+// isReplaceable reports whether --force may recursively remove dest. Only a
+// checkout - a working copy, a bare/mirror repository - or an empty directory
+// qualifies. --force is documented as overwriting existing *clones*, but dest
+// is user-supplied through the =<dir> grammar, so without this guard a typo
+// like `clone owner/repo=~/Documents --force` would delete an unrelated tree.
+// Anything else is refused and left for the user to remove deliberately.
+func isReplaceable(dest string) bool {
+	return detectVCS(dest, "") != "" || isBareRepo(dest) || isEmptyDir(dest)
+}
+
+// isBareRepo reports whether dir is a bare repository. Mirror clones carry no
+// .git marker for detectVCS to find - dir *is* the git directory - so they are
+// identified by the layout git puts there instead.
+func isBareRepo(dir string) bool {
+	for _, name := range []string{"HEAD", "objects", "refs"} {
+		if ok, _ := xos.Exists(filepath.Join(dir, name)); !ok {
+			return false
+		}
+	}
+	return true
+}
+
+// isEmptyDir reports whether path is a directory holding no entries. A file or
+// an unreadable path is not empty for this purpose: the caller refuses those
+// rather than deleting them.
+func isEmptyDir(path string) bool {
+	entries, err := os.ReadDir(path)
+	return err == nil && len(entries) == 0
 }
 
 func formatCloneError(err error, stderrText string) error {
