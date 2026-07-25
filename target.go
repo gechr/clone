@@ -12,6 +12,7 @@ import (
 
 	"github.com/gechr/clog"
 	"github.com/gechr/clog/fx"
+	"github.com/gechr/forge"
 	xmaps "github.com/gechr/x/maps"
 	xslices "github.com/gechr/x/slices"
 )
@@ -68,7 +69,7 @@ func expandMultiPR(repos []string) ([]string, error) {
 		if hasDir {
 			return nil, fmt.Errorf("%q: =%s cannot be combined with multi-PR reference", arg, dir)
 		}
-		nums, err := parsePRList(prPart)
+		nums, err := forge.ExpandPRList(prPart)
 		if err != nil {
 			return nil, fmt.Errorf("%q: %w", arg, err)
 		}
@@ -89,53 +90,14 @@ func isMultiPR(prPart string) bool {
 	return strings.ContainsAny(prPart, ",-")
 }
 
-// parsePRList parses a PR list like "1,2,5-7" into []int{1, 2, 5, 6, 7}.
-// Ranges are inclusive on both ends; negative or zero numbers are rejected.
-func parsePRList(spec string) ([]int, error) {
-	var nums []int
-	seen := make(map[int]struct{})
-	for segment := range strings.SplitSeq(spec, ",") {
-		segment = strings.TrimSpace(segment)
-		if segment == "" {
-			return nil, fmt.Errorf("empty PR number in %q", spec)
-		}
-		lo, hi, ok := parsePRRange(segment)
-		if !ok {
-			return nil, fmt.Errorf("invalid PR reference %q", segment)
-		}
-		for n := lo; n <= hi; n++ {
-			if _, dup := seen[n]; dup {
-				continue
-			}
-			seen[n] = struct{}{}
-			nums = append(nums, n)
-		}
-	}
-	return nums, nil
-}
-
-func parsePRRange(segment string) (int, int, bool) {
-	if before, after, hasDash := strings.Cut(segment, "-"); hasDash {
-		lo, errLo := strconv.Atoi(before)
-		hi, errHi := strconv.Atoi(after)
-		if errLo != nil || errHi != nil || lo <= 0 || hi < lo {
-			return 0, 0, false
-		}
-		return lo, hi, true
-	}
-	n, err := strconv.Atoi(segment)
-	if err != nil || n <= 0 {
-		return 0, 0, false
-	}
-	return n, n, true
-}
-
 func parseRepoRequest(input, defaultOwner string) (repoRequest, error) {
 	raw := strings.TrimSpace(input)
 	if raw == "" {
 		return repoRequest{}, fmt.Errorf("repository argument cannot be empty")
 	}
 
+	// The =<dir> destination suffix is clone's grammar, not the library's -
+	// strip it before parsing the reference.
 	repoText := raw
 	dir := ""
 	if left, right, ok := strings.Cut(raw, "="); ok {
@@ -151,45 +113,53 @@ func parseRepoRequest(input, defaultOwner string) (repoRequest, error) {
 		return req, nil
 	}
 
-	owner := defaultOwner
-	name := repoText
-	explicitOwner := false
-	if before, after, ok := strings.Cut(repoText, "/"); ok {
-		if before == "" || after == "" || strings.Contains(after, "/") {
-			return repoRequest{}, fmt.Errorf("invalid repository %q", raw)
-		}
-		owner = before
-		name = after
-		explicitOwner = true
-	}
-
-	var pr string
-	if namePart, prPart, ok := strings.Cut(name, "#"); ok {
-		name = namePart
-		pr = prPart
-	}
-
-	if name != keywordAll && !isValidRepoName(name) {
+	ref, err := forge.ParseShorthand(repoText, forge.WithDefaultOwner(defaultOwner))
+	if err != nil {
 		return repoRequest{}, fmt.Errorf("invalid repository %q", raw)
 	}
-	if name == keywordAll && dir != "" {
+	// The library's @rev shorthand has no clone semantics yet - reject it
+	// rather than silently dropping the revision.
+	if ref.Rev != "" || ref.Commit != "" {
+		return repoRequest{}, fmt.Errorf("invalid repository %q", raw)
+	}
+	if ref.Name == keywordAll && dir != "" {
 		return repoRequest{}, fmt.Errorf("%q cannot be combined with =<dir>", raw)
 	}
-	if name == keywordAll && pr != "" {
+	if ref.Name == keywordAll && ref.PullRequest != "" {
 		return repoRequest{}, fmt.Errorf("%q cannot be combined with PR references", keywordAll)
 	}
 
 	return repoRequest{
-		ExplicitOwner: explicitOwner,
-		Owner:         owner,
-		Name:          strings.TrimSuffix(name, dotGit),
+		ExplicitOwner: ref.ExplicitOwner,
+		Owner:         ref.Owner,
+		Name:          ref.Name,
 		Dir:           dir,
-		PullRequest:   pr,
+		PullRequest:   ref.PullRequest,
 	}, nil
 }
 
 func parseRepoURL(repoText string) (repoRequest, bool) {
-	return parseForgeURL(repoText)
+	ref, ok := forge.ParseURL(repoText)
+	if !ok {
+		return repoRequest{}, false
+	}
+	return repoRequest{
+		Branch:        ref.Branch,
+		Commit:        ref.Commit,
+		ExplicitOwner: ref.ExplicitOwner,
+		Host:          ref.Host,
+		Name:          ref.Name,
+		Owner:         ref.Owner,
+		PullRequest:   ref.PullRequest,
+		Source:        ref.CloneURL,
+		Tag:           ref.Tag,
+	}, true
+}
+
+// requestRef adapts a repoRequest's coordinates to a forge.Ref for URL
+// construction.
+func requestRef(req repoRequest) forge.Ref {
+	return forge.Ref{Host: req.Host, Owner: req.Owner, Name: req.Name}
 }
 
 // resolveDestName computes the destination directory name for a repo
@@ -213,10 +183,7 @@ func resolveDestName(dir, name string, mirror bool) string {
 	}
 }
 
-const (
-	minPullSegments  = 4   // owner/repo/pull/N
-	maxRepoNameBytes = 255 // common filesystem NAME_MAX for a single path component
-)
+const maxRepoNameBytes = 255 // common filesystem NAME_MAX for a single path component
 
 func ensureDefaultOwner(defaultOwner string, nonGitHub bool) (string, error) {
 	if defaultOwner != "" {
@@ -258,7 +225,7 @@ func resolveViewerTargets(
 	}
 
 	if cli.forge.Host == "" {
-		cli.forge = forgeRegistry[forgeGitHub]
+		cli.forge, _ = forge.Resolve("")
 	}
 
 	var viewerRepos []repoInfo
@@ -364,7 +331,7 @@ func buildTargetsFromRequests(
 			Mirror:        cli.Mirror,
 			Owner:         req.Owner,
 			Repo:          req.Name,
-			RepoURL:       repoWebURL(req.Host, slug),
+			RepoURL:       requestRef(req).WebURL(),
 			SingleBranch:  cli.Quick,
 			Slug:          slug,
 			Source:        resolveCloneSource(cli.Method, req, cli.forge),
@@ -422,7 +389,7 @@ func resolveCloneTargets(
 	}
 
 	if cli.forge.Host == "" {
-		cli.forge = forgeRegistry[forgeGitHub]
+		cli.forge, _ = forge.Resolve("")
 	}
 	nonGitHub := cli.forge.Host != hostGitHub
 
@@ -642,7 +609,7 @@ func resolveCloneTargets(
 			Mirror:        cli.Mirror,
 			Owner:         req.Owner,
 			Repo:          req.Name,
-			RepoURL:       repoWebURL(req.Host, slug),
+			RepoURL:       requestRef(req).WebURL(),
 			SingleBranch:  cli.Quick,
 			Slug:          slug,
 			Source:        resolveCloneSource(cli.Method, req, cli.forge),
@@ -878,31 +845,14 @@ func prKey(req repoRequest) string {
 	return req.Owner + "/" + req.Name + "#" + req.PullRequest
 }
 
-func resolveCloneSource(method string, req repoRequest, forge forgeConfig) string {
+func resolveCloneSource(method string, req repoRequest, f forge.Forge) string {
 	if req.Source != "" {
 		return req.Source
 	}
-	scheme := schemeSSH
+	ref := requestRef(req)
+	ref.Host = f.Host
 	if method == methodHTTPS {
-		scheme = schemeHTTPS
+		return ref.HTTPSURL()
 	}
-	return forgeSource(scheme, forge.Host, req.Owner+pathSep+req.Name, forge.GitSuffix)
-}
-
-func isValidRepoName(name string) bool {
-	if name == "" || name == "." || name == ".." {
-		return false
-	}
-	if len(name) > maxRepoNameBytes {
-		return false
-	}
-	for _, r := range name {
-		switch {
-		case isLower(r), isUpper(r), isDigit(r):
-		case r == '-' || r == '_' || r == '.':
-		default:
-			return false
-		}
-	}
-	return true
+	return ref.SSHURL()
 }

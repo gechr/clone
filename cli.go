@@ -12,6 +12,7 @@ import (
 	"github.com/gechr/clog"
 	"github.com/gechr/conductor"
 	cli "github.com/gechr/conductor/cli/kong"
+	"github.com/gechr/forge"
 	"github.com/gechr/x/ansi"
 	xslices "github.com/gechr/x/slices"
 	xstrings "github.com/gechr/x/strings"
@@ -85,7 +86,7 @@ type CLI struct {
 	binJJ       string `kong:"-"`
 	explicitVCS bool   `kong:"-"`
 
-	forge       forgeConfig `kong:"-"`
+	forge       forge.Forge `kong:"-"`
 	StarsFilter rangeFilter `kong:"-"`
 
 	LanguageFilters [][]string `kong:"-"`
@@ -241,11 +242,11 @@ func (c *CLI) Validate() error {
 	if c.Pull && c.Mirror {
 		return fmt.Errorf("--pull and --mirror can't be used together")
 	}
-	forge, err := resolveForge(c.Forge)
+	resolved, err := forge.Resolve(c.Forge)
 	if err != nil {
 		return err
 	}
-	c.forge = forge
+	c.forge = resolved
 	return c.validateForgeFlags()
 }
 

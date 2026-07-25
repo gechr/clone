@@ -4,12 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/gechr/forge"
 	"github.com/gechr/x/human"
-	xos "github.com/gechr/x/os"
 	xshell "github.com/gechr/x/shell"
 	xslices "github.com/gechr/x/slices"
 )
@@ -113,19 +112,13 @@ func parseRangeFilter(expr string) (rangeFilter, error) {
 }
 
 func isDigit(r rune) bool { return r >= '0' && r <= '9' }
-func isLower(r rune) bool { return r >= 'a' && r <= 'z' }
-func isUpper(r rune) bool { return r >= 'A' && r <= 'Z' }
 
 // detectVCS inspects an existing clone to decide whether to drive it with jj
-// or git. A `.jj` directory takes precedence - colocated repos have both and
-// jj should own the update. Falls back to the caller's requested VCS when
-// neither marker is present.
+// or git. Falls back to the caller's requested VCS when neither marker is
+// present.
 func detectVCS(dest, fallback string) string {
-	if ok, _ := xos.Exists(filepath.Join(dest, ".jj")); ok {
-		return vcsJJ
-	}
-	if ok, _ := xos.Exists(filepath.Join(dest, dotGit)); ok {
-		return vcsGit
+	if vcs := forge.DetectVCS(dest); vcs != "" {
+		return vcs
 	}
 	return fallback
 }
