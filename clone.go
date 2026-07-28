@@ -690,7 +690,10 @@ func executeQuiet(
 
 	logCloneResult(baseDir, cloners, failedClones)
 	logFetchResult(fetchers, failedFetches)
-	return errors.Join(errs...)
+	if len(errs) > 0 {
+		return errors.Join(append(errs, errSilent)...)
+	}
+	return nil
 }
 
 func executeWithProgress(
@@ -781,7 +784,10 @@ func executeWithProgress(
 
 	logCloneResult(baseDir, cloners, failedClones)
 	logFetchResult(fetchers, failedFetches)
-	return errors.Join(errs...)
+	if len(errs) > 0 {
+		return errors.Join(append(errs, errSilent)...)
+	}
+	return nil
 }
 
 func (c *Cloner) Run(
