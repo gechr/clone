@@ -200,6 +200,30 @@ func TestClonerLinkUsesRepositoryIdentity(t *testing.T) {
 	require.Empty(t, cloner.RefURL())
 }
 
+func TestClonerShowsDestination(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		baseDir string
+		custom  bool
+		want    bool
+	}{
+		{name: "default"},
+		{name: "custom", custom: true, want: true},
+		{name: "base directory", baseDir: "/tmp/clone-123", want: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			cloner := NewCloner(CloneTarget{CustomDest: test.custom})
+			require.Equal(t, test.want, cloner.showsDestination(test.baseDir))
+		})
+	}
+}
+
 func TestClonerRefLinks(t *testing.T) {
 	t.Parallel()
 

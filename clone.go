@@ -381,6 +381,10 @@ func (c *Cloner) RefURL() string {
 	}
 }
 
+func (c *Cloner) showsDestination(baseDir string) bool {
+	return baseDir != "" || c.CustomDest
+}
+
 func logCloneFailed(failed []*Cloner) {
 	links := cloneLinks(failed)
 	if len(links) == 1 {
@@ -717,7 +721,7 @@ func executeWithProgress(
 		if key := cloner.RefKey(); key != "" {
 			b = b.Link(key, cloner.RefURL(), cloner.RefText())
 		}
-		if cloner.CustomDest {
+		if cloner.showsDestination(baseDir) {
 			b = b.Path("destination", cloner.Dest)
 		}
 		result := group.Add(b).Progress(func(ctx context.Context, update *clog.Update) error {
