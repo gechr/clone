@@ -14,7 +14,7 @@ require (
 	github.com/gechr/clive v0.4.9
 	github.com/gechr/clog v0.15.6
 	github.com/gechr/conductor v0.1.15
-	github.com/gechr/x v0.5.7
+	github.com/gechr/x v0.5.8
 	github.com/stretchr/testify v1.11.1
 )
 
