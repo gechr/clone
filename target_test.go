@@ -211,6 +211,53 @@ func TestResolveDestName(t *testing.T) {
 	}
 }
 
+func TestResolveDestinationOwnerDir(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		cli     CLI
+		baseDir string
+		req     repoRequest
+		want    string
+	}{
+		{
+			name: "owner and repository",
+			cli:  CLI{OwnerDir: true},
+			req:  repoRequest{Owner: "gechr", Name: "clone"},
+			want: "gechr/clone",
+		},
+		{
+			name:    "inside base directory",
+			cli:     CLI{OwnerDir: true},
+			baseDir: "projects",
+			req:     repoRequest{Owner: "gechr", Name: "clone"},
+			want:    "projects/gechr/clone",
+		},
+		{
+			name: "mirror",
+			cli:  CLI{OwnerDir: true, Mirror: true},
+			req:  repoRequest{Owner: "gechr", Name: "clone"},
+			want: "gechr/clone.git",
+		},
+		{
+			name: "explicit destination overrides owner directory",
+			cli:  CLI{OwnerDir: true},
+			req:  repoRequest{Owner: "gechr", Name: "clone", Dir: "local"},
+			want: "local",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := resolveDestination(&test.cli, test.baseDir, test.req)
+			require.Equal(t, test.want, got)
+		})
+	}
+}
+
 func TestParseRepoRequestRejectsOverlongRepoName(t *testing.T) {
 	t.Parallel()
 
@@ -512,6 +559,25 @@ func TestResolveCloneTargetsDetectsDestinationClash(t *testing.T) {
 
 	_, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
 	require.Error(t, err)
+}
+
+func TestResolveCloneTargetsOwnerDirAvoidsDestinationClash(t *testing.T) {
+	t.Parallel()
+
+	cli := &CLI{
+		Owner:      testDefaultOwner,
+		Repos:      []string{"foo/repo", "bar/repo"},
+		VCS:        vcsGit,
+		Method:     methodSSH,
+		OwnerDir:   true,
+		Visibility: keywordAll,
+	}
+
+	targets, _, err := resolveCloneTargets(context.Background(), cli, fakeRepoLister{})
+	require.NoError(t, err)
+	require.Len(t, targets, 2)
+	require.Equal(t, "foo/repo", targets[0].Dest)
+	require.Equal(t, "bar/repo", targets[1].Dest)
 }
 
 func TestResolveCloneTargetsTopicFiltersAND(t *testing.T) {

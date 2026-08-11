@@ -50,7 +50,7 @@ go install github.com/gechr/clone@latest
 | Flag                    | Description                                                                                                                             |
 | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `-b`, `--branch <name>` | Clone a specific branch                                                                                                                 |
-| `-D`, `--depth <n>`     | Create a shallow clone of the given depth                                                                                               |
+| `--depth <n>`           | Create a shallow clone of the given depth                                                                                               |
 | `-Q`, `--quick`         | Shallow single-branch clone (`--depth=1 --single-branch`)                                                                               |
 | `--fetch`               | Fetch updates for existing clones instead of skipping                                                                                   |
 | `--pull`                | Pull updates for existing clones (`git pull --rebase`; `jj` behaves like `--fetch`). Combine with `--force` for `--rebase --force`      |
@@ -64,6 +64,7 @@ go install github.com/gechr/clone@latest
 | Flag                       | Description                                                                |
 | -------------------------- | -------------------------------------------------------------------------- |
 | `-d`, `--directory <path>` | Clone into a specific directory                                            |
+| `-D`, `--owner-dir`        | Clone into a subdirectory named after the repository owner                 |
 | `-T`, `--temp`             | Clone into a temporary directory                                           |
 | `--print`                  | Print temp directory path to stdout (requires `--temp`; implies `--quiet`) |
 | `-f`, `--force`            | Overwrite existing clones                                                  |
@@ -117,6 +118,9 @@ clone -O other-owner all
 
 # Clone into a specific directory
 clone -d ~/projects/go --language=Go
+
+# Preserve owner/repository directory structure
+clone -D gechr/clone
 
 # Clone a specific branch with shallow depth
 clone --branch=main --depth=1 owner/repo

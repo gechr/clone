@@ -183,6 +183,20 @@ func resolveDestName(dir, name string, mirror bool) string {
 	}
 }
 
+// resolveDestination computes a target's complete local path. OwnerDir only
+// affects the default destination; an explicit =<dir> remains an exact
+// per-repository override.
+func resolveDestination(cli *CLI, baseDir string, req repoRequest) string {
+	destName := resolveDestName(req.Dir, req.Name, cli.Mirror)
+	if cli.OwnerDir && req.Dir == "" {
+		destName = filepath.Join(req.Owner, destName)
+	}
+	if baseDir != "" {
+		return filepath.Join(baseDir, destName)
+	}
+	return destName
+}
+
 const maxRepoNameBytes = 255 // common filesystem NAME_MAX for a single path component
 
 func ensureDefaultOwner(defaultOwner string, nonGitHub bool) (string, error) {
@@ -309,11 +323,6 @@ func buildTargetsFromRequests(
 ) ([]CloneTarget, error) {
 	targets := make([]CloneTarget, 0, len(requests))
 	for _, req := range requests {
-		destName := resolveDestName(req.Dir, req.Name, cli.Mirror)
-		dest := destName
-		if baseDir != "" {
-			dest = filepath.Join(baseDir, destName)
-		}
 		slug := req.Owner + "/" + req.Name
 		if req.Host == "" {
 			req.Host = cli.forge.Host
@@ -323,9 +332,9 @@ func buildTargetsFromRequests(
 			BinJJ:         cli.binJJ,
 			Branch:        requestBranch(req, cli.Branch),
 			Commit:        req.Commit,
-			CustomDest:    req.Dir != "",
+			CustomDest:    req.Dir != "" || cli.OwnerDir,
 			Depth:         cli.Depth,
-			Dest:          dest,
+			Dest:          resolveDestination(cli, baseDir, req),
 			ExplicitOwner: req.ExplicitOwner,
 			Label:         slug,
 			Mirror:        cli.Mirror,
@@ -584,13 +593,6 @@ func resolveCloneTargets(
 
 	targets := make([]CloneTarget, 0, len(selected))
 	for _, req := range selected {
-		destName := resolveDestName(req.Dir, req.Name, cli.Mirror)
-
-		dest := destName
-		if baseDir != "" {
-			dest = filepath.Join(baseDir, destName)
-		}
-
 		slug := req.Owner + "/" + req.Name
 
 		if req.Host == "" {
@@ -602,9 +604,9 @@ func resolveCloneTargets(
 			BinJJ:         cli.binJJ,
 			Branch:        requestBranch(req, cli.Branch),
 			Commit:        req.Commit,
-			CustomDest:    req.Dir != "",
+			CustomDest:    req.Dir != "" || cli.OwnerDir,
 			Depth:         cli.Depth,
-			Dest:          dest,
+			Dest:          resolveDestination(cli, baseDir, req),
 			ExplicitOwner: req.ExplicitOwner,
 			Mirror:        cli.Mirror,
 			Owner:         req.Owner,

@@ -59,6 +59,18 @@ func TestBuildParserQuick(t *testing.T) {
 	assert.Equal(t, []string{"owner/repo"}, cli.Repos)
 }
 
+func TestBuildParserOwnerDir(t *testing.T) {
+	t.Parallel()
+
+	var cli CLI
+	parser := buildParser(&cli)
+	err := parseArgs(parser, []string{"-D", "gechr/clone"})
+	require.NoError(t, err)
+
+	assert.True(t, cli.OwnerDir)
+	assert.Equal(t, []string{"gechr/clone"}, cli.Repos)
+}
+
 func TestBuildParserRejectsQuickWithDepth(t *testing.T) {
 	t.Parallel()
 
@@ -103,7 +115,7 @@ func TestBuildParserAttachedShortFlags(t *testing.T) {
 
 	var cli CLI
 	parser := buildParser(&cli)
-	err := parseArgs(parser, []string{"-D10", "-P5", "owner/repo"})
+	err := parseArgs(parser, []string{"--depth=10", "-P5", "owner/repo"})
 	require.NoError(t, err)
 
 	assert.Equal(t, 10, cli.Depth)
