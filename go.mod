@@ -12,7 +12,7 @@ require (
 	github.com/cli/go-gh/v2 v2.13.0
 	github.com/gechr/clib v0.7.17
 	github.com/gechr/clive v0.4.10
-	github.com/gechr/clog v0.16.2
+	github.com/gechr/clog v0.16.3
 	github.com/gechr/conductor v0.1.17
 	github.com/gechr/x v0.5.17
 	github.com/stretchr/testify v1.11.1

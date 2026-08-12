@@ -174,9 +174,12 @@ func (c *cloneCallback) sendProgressLocked() {
 	current, total := c.progress.DisplayState(c.lastProgress)
 	c.lastProgress = current
 
-	c.update.Msg(c.progress.Message()).
+	u := c.update.Msg(c.progress.Message()).
 		SetTotal(total).
 		SetProgress(current)
+	if count := c.progress.EnumeratedObjects(); count > 0 {
+		u.Str("total", human.FormatNumberCompact(int64(count)))
+	}
 	c.send()
 }
 

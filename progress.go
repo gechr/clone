@@ -38,6 +38,7 @@ type transferStats struct {
 }
 
 type gitProgress struct {
+	Enumerated    int
 	Counted       phaseProgress
 	Compressed    phaseProgress
 	Objects       phaseProgress
@@ -77,6 +78,8 @@ const (
 
 func (p *gitProgress) apply(line string) bool {
 	switch {
+	case strings.HasPrefix(line, "remote: Enumerating objects:"):
+		return p.updateEnumerated(strings.TrimPrefix(line, "remote: Enumerating objects:"))
 	case strings.HasPrefix(line, "remote: Counting objects:"):
 		return p.updatePhase(
 			&p.Counted,
@@ -104,6 +107,14 @@ func (p *gitProgress) apply(line string) bool {
 	default:
 		return false
 	}
+}
+
+func (p *gitProgress) updateEnumerated(line string) bool {
+	if count, ok := readObjectCount(line); ok {
+		p.Enumerated = count
+	}
+	p.Transferring = false
+	return true
 }
 
 func (p *gitProgress) updatePhase(phase *phaseProgress, line string, trackTransfer bool) bool {
@@ -211,9 +222,21 @@ func (p cloneProgress) Message() string {
 		return "Checking out"
 	case p.Git.Deltas.Total > 0 && p.Git.Deltas.Current == p.Git.Deltas.Total:
 		return "Checking out"
+	case p.EnumeratedObjects() > 0:
+		return "Enumerating objects"
 	default:
 		return "Cloning"
 	}
+}
+
+// EnumeratedObjects reports how many objects the remote has enumerated while
+// that is still the only thing it has told us. Once any phase reports a
+// denominator the bar takes over, so the count stops being worth showing.
+func (p cloneProgress) EnumeratedObjects() int {
+	if p.Git.Total() > 0 {
+		return 0
+	}
+	return p.Git.Enumerated
 }
 
 func (p cloneProgress) HasCheckoutProgress() bool {
@@ -388,6 +411,19 @@ func readProgressCounts(line string) (int, int, bool) {
 	}
 
 	return current, total, true
+}
+
+// readObjectCount extracts the bare object count from a git progress line that
+// reports no denominator. Git formats enumeration as:
+//
+//	"remote: Enumerating objects: 11290264, done."
+func readObjectCount(line string) (int, bool) {
+	value, _, _ := strings.Cut(line, ",")
+	count, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || count < 0 {
+		return 0, false
+	}
+	return count, true
 }
 
 // readTransferStats extracts transfer information after the closing paren in a

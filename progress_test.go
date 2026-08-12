@@ -70,9 +70,62 @@ func TestGitProgressApply(t *testing.T) {
 	require.True(t, progress.apply("Resolving deltas: 100% (3/3), done."))
 	require.True(t, progress.apply("Updating files: 100% (20/20), done."))
 	require.True(t, progress.apply("Filtering content: 100% (1/1), 233.51 MiB | 6.14 MiB/s, done."))
-	require.False(t, progress.apply("remote: Enumerating objects: 42, done."))
+	require.True(t, progress.apply("remote: Enumerating objects: 42, done."))
 	require.Equal(t, 39, progress.Current())
 	require.Equal(t, 44, progress.Total())
+}
+
+func TestGitProgressApplyEnumerating(t *testing.T) {
+	t.Parallel()
+
+	progress := gitProgress{}
+
+	require.True(t, progress.apply("remote: Enumerating objects: 11290264"))
+	require.Equal(t, 11290264, progress.Enumerated)
+	require.True(t, progress.apply("remote: Enumerating objects: 11290264, done."))
+	require.Equal(t, 11290264, progress.Enumerated)
+
+	// Enumeration carries no denominator, so it must not move the bar.
+	require.Equal(t, 0, progress.Current())
+	require.Equal(t, 0, progress.Total())
+}
+
+func TestReadObjectCount(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		line  string
+		count int
+		ok    bool
+	}{
+		{name: "in progress", line: " 11290264", count: 11290264, ok: true},
+		{name: "done", line: " 11290264, done.", count: 11290264, ok: true},
+		{name: "zero", line: " 0, done.", ok: true},
+		{name: "empty", line: "", ok: false},
+		{name: "not a count", line: " 100% (10/10), done.", ok: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			count, ok := readObjectCount(test.line)
+			require.Equal(t, test.ok, ok)
+			require.Equal(t, test.count, count)
+		})
+	}
+}
+
+func TestCloneProgressEnumeratedObjects(t *testing.T) {
+	t.Parallel()
+
+	p := cloneProgress{Git: gitProgress{Enumerated: 11290264}}
+	require.Equal(t, 11290264, p.EnumeratedObjects())
+
+	// A phase with a denominator supersedes the bare count.
+	p.Git.Counted = phaseProgress{Current: 1, Total: 4}
+	require.Equal(t, 0, p.EnumeratedObjects())
 }
 
 func TestGitProgressOverall(t *testing.T) {
@@ -292,6 +345,23 @@ func TestCloneProgressMessage(t *testing.T) {
 				LFS: lfsProgress{Operation: "download", CurrentFile: 1, TotalFiles: 2},
 			},
 			want: "Downloading LFS",
+		},
+		{
+			name: "enumerating",
+			p: cloneProgress{
+				Git: gitProgress{Enumerated: 11290264},
+			},
+			want: "Enumerating objects",
+		},
+		{
+			name: "enumerating superseded by counting",
+			p: cloneProgress{
+				Git: gitProgress{
+					Enumerated: 11290264,
+					Counted:    phaseProgress{Current: 1, Total: 4},
+				},
+			},
+			want: "Cloning",
 		},
 	}
 
