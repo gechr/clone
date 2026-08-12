@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -124,6 +126,26 @@ func TestCloneCallbackMonotonic(t *testing.T) {
 
 	require.GreaterOrEqual(t, second, first)
 	require.Equal(t, first, second)
+}
+
+func TestCloneCallbackAwaitRemoteStopsOnCancel(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	cb := &cloneCallback{}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		cb.awaitRemote(ctx)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(remoteSilenceDelay):
+		t.Fatal("awaitRemote ignored a cancelled context")
+	}
 }
 
 func TestShowOverallProgress(t *testing.T) {

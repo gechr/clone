@@ -17,6 +17,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"github.com/gechr/clog"
+	"github.com/gechr/clog/field/elapsed"
 	"github.com/gechr/clog/fx"
 	"github.com/gechr/clog/fx/bar"
 	"github.com/gechr/clog/fx/bar/widget"
@@ -136,6 +137,7 @@ type cloneCallback struct {
 
 	lastProgress  int
 	progress      cloneProgress
+	sawProgress   bool
 	transferStats *atomic.Pointer[transferStats] // shared with widget; nil when not verbose
 	update        *clog.Update
 }
@@ -170,7 +172,32 @@ func (c *cloneCallback) LFSProgress(p *lfsProgress) {
 	c.sendProgressLocked()
 }
 
+// awaitRemote shows how long the remote has kept git silent. Enumerating a
+// large pack can take minutes during which git reports nothing at all, leaving
+// a bar that is hidden until the first counted phase and no sign of life.
+func (c *cloneCallback) awaitRemote(ctx context.Context) {
+	timer := time.NewTimer(remoteSilenceDelay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return
+	case <-timer.C:
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.sawProgress || c.update == nil {
+		return
+	}
+	c.update.Msg("Waiting for remote").
+		Elapsed("elapsed", remoteSilenceDelay, elapsed.WithGradientMax(remoteSilenceMax))
+	c.send()
+}
+
 func (c *cloneCallback) sendProgressLocked() {
+	c.sawProgress = true
 	current, total := c.progress.DisplayState(c.lastProgress)
 	c.lastProgress = current
 
@@ -186,7 +213,11 @@ func (c *cloneCallback) sendProgressLocked() {
 func (c *cloneCallback) LocalSideband(string, *sidebandTerminator)  {}
 func (c *cloneCallback) RemoteSideband(string, *sidebandTerminator) {}
 
-const transferStatsDelay = 10 * time.Second
+const (
+	remoteSilenceDelay = 5 * time.Second
+	remoteSilenceMax   = 60 * time.Second
+	transferStatsDelay = 10 * time.Second
+)
 
 func cloneBarOptions(verbose bool, stats *atomic.Pointer[transferStats]) []bar.Option {
 	percentWidget := widget.Percent(
@@ -947,6 +978,10 @@ func (c *Cloner) runGitClone(
 	}
 
 	cb := &cloneCallback{update: update, transferStats: stats}
+	silenceCtx, cancelSilence := context.WithCancel(ctx)
+	defer cancelSilence()
+	go cb.awaitRemote(silenceCtx)
+
 	lfsCtx, cancelLFS := context.WithCancel(ctx)
 	defer cancelLFS()
 
@@ -1115,6 +1150,10 @@ func (f *Fetcher) runGitFetch(
 	}
 
 	cb := &cloneCallback{update: update, transferStats: stats}
+	silenceCtx, cancelSilence := context.WithCancel(ctx)
+	defer cancelSilence()
+	go cb.awaitRemote(silenceCtx)
+
 	stderrText, parseErr := relayGitProgress(stderr, cb)
 	waitErr := cmd.Wait()
 	if parseErr != nil {
