@@ -76,12 +76,13 @@ go install github.com/gechr/clone@latest
 
 ## Environment variables
 
-| Variable       | Description                                                       |
-| -------------- | ----------------------------------------------------------------- |
-| `CLONE_FORGE`  | Default forge, overridden by `--forge`                            |
-| `CLONE_METHOD` | Default clone method (`ssh` or `https`), overridden by `--method` |
-| `CLONE_OWNER`  | Default owner/organization, overridden by `--owner`               |
-| `CLONE_VCS`    | Default VCS (`git` or `jj`), overridden by `--vcs`                |
+| Variable          | Description                                                        |
+| ----------------- | ------------------------------------------------------------------ |
+| `CLONE_FORGE`     | Default forge, overridden by `--forge`                             |
+| `CLONE_METHOD`    | Default clone method (`ssh` or `https`), overridden by `--method`  |
+| `CLONE_OWNER`     | Default owner/organization, overridden by `--owner`                |
+| `CLONE_OWNER_DIR` | Clone into an owner subdirectory by default, as `--owner-dir` does |
+| `CLONE_VCS`       | Default VCS (`git` or `jj`), overridden by `--vcs`                 |
 
 ## Examples
 

@@ -71,6 +71,17 @@ func TestBuildParserOwnerDir(t *testing.T) {
 	assert.Equal(t, []string{"gechr/clone"}, cli.Repos)
 }
 
+func TestBuildParserOwnerDirEnv(t *testing.T) {
+	t.Setenv("CLONE_OWNER_DIR", "1")
+
+	var cli CLI
+	parser := buildParser(&cli)
+	err := parseArgs(parser, []string{"gechr/clone"})
+	require.NoError(t, err)
+
+	assert.True(t, cli.OwnerDir)
+}
+
 func TestBuildParserRejectsQuickWithDepth(t *testing.T) {
 	t.Parallel()
 
