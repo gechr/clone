@@ -17,16 +17,10 @@ import (
 	"github.com/gechr/clive/updater"
 	"github.com/gechr/clive/updater/brew"
 	"github.com/gechr/clog"
-	"github.com/gechr/clog/fx/spinner"
-	"github.com/gechr/clog/level"
-	"github.com/gechr/clog/style"
 	"github.com/gechr/conductor"
 	cli "github.com/gechr/conductor/cli/kong"
 	"github.com/gechr/x/terminal"
 )
-
-// LevelSuccess is a custom log level for successful completion messages.
-const LevelSuccess = clog.Level(3)
 
 const (
 	exitCodeUsage  = 2
@@ -108,46 +102,10 @@ func exitCode(err error) int {
 	return 1
 }
 
-// configureClog layers clone's voice (custom success level, symbols, styles,
-// spinner) over conductor's defaults; conductor runs it via App.ConfigureLog.
+// configureClog layers clone's voice over conductor's defaults; conductor
+// runs it via App.ConfigureLog.
 func configureClog() {
-	level.Register(LevelSuccess, "success", "OK")
-
-	clog.SetParts(clog.PartSymbol, clog.PartMessage, clog.PartFields)
-	clog.SetLevelAlign(clog.AlignNone)
-	clog.SetWrap(clog.WrapSoft)
-
-	clog.SetSymbols(clog.LabelMap{
-		clog.LevelInfo:  "·",
-		LevelSuccess:    "✔︎",
-		clog.LevelWarn:  "›",
-		clog.LevelError: "✘",
-		clog.LevelFatal: "✘",
-		clog.LevelDry:   "$",
-	})
-
-	green := new(lipgloss.NewStyle().Foreground(lipgloss.Color("2")))
-	yellow := new(lipgloss.NewStyle().Foreground(lipgloss.Color("3")))
-	clog.SetStyles(&style.Config{
-		Message: new(lipgloss.NewStyle().Bold(true)),
-		Messages: style.LevelMap{
-			clog.LevelInfo:  green,
-			LevelSuccess:    green,
-			clog.LevelWarn:  yellow,
-			clog.LevelError: new(lipgloss.NewStyle().Foreground(lipgloss.Color("1"))),
-			clog.LevelFatal: new(lipgloss.NewStyle()),
-			clog.LevelDry:   yellow,
-		},
-		Symbols: style.LevelMap{
-			clog.LevelInfo:  new(lipgloss.NewStyle().Foreground(lipgloss.Color("3"))),
-			LevelSuccess:    green,
-			clog.LevelWarn:  new(lipgloss.NewStyle().Foreground(lipgloss.Color("3"))),
-			clog.LevelError: new(lipgloss.NewStyle().Foreground(lipgloss.Color("1"))),
-			clog.LevelFatal: new(lipgloss.NewStyle().Foreground(lipgloss.Color("1"))),
-			clog.LevelDry:   new(lipgloss.NewStyle().Foreground(lipgloss.Color("3")).Bold(true)),
-		},
-	})
-	clog.SetSpinnerDefaults(spinner.WithConfig(spinner.DotsBounce))
+	clog.ApplyPreset(clog.TersePreset())
 
 	// Align clive's self-update glyphs and colours with clone's own symbol set
 	// so the updater's lines don't clash with the emoji defaults.

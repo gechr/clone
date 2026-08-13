@@ -272,7 +272,7 @@ func resolveViewerTargets(
 		}
 		return nil
 	}).
-		OnSuccessLevel(LevelSuccess).
+		OnSuccessLevel(clog.LevelSuccess).
 		Msg("Fetched")
 	if listErr != nil {
 		return nil, baseDir, errSilent
@@ -511,7 +511,7 @@ func resolveCloneTargets(
 				}
 				return nil
 			}).
-				OnSuccessLevel(LevelSuccess).
+				OnSuccessLevel(clog.LevelSuccess).
 				Msg("Fetched")
 			if listErr != nil {
 				return nil, baseDir, errSilent

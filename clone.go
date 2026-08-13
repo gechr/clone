@@ -465,14 +465,14 @@ func logCloneResult(baseDir string, all, failed []*Cloner) {
 func logCloneSucceeded(baseDir string, succeeded []*Cloner) {
 	links := cloneLinks(succeeded)
 	if len(links) == 1 {
-		e := clog.Log(LevelSuccess).Link(succeeded[0].LinkKey(), links[0].URL, links[0].Text)
+		e := clog.Success().Link(succeeded[0].LinkKey(), links[0].URL, links[0].Text)
 		e = addCloneRefLinks(e, succeeded)
 		if baseDir != "" {
 			e = e.Path("directory", succeeded[0].Dest)
 		}
 		e.Msg("Cloned")
 	} else {
-		e := clog.Log(LevelSuccess).
+		e := clog.Success().
 			Links("repositories", links)
 		e = addCloneRefLinks(e, succeeded)
 		if baseDir != "" {
@@ -529,9 +529,9 @@ func logFetchResult(all, failed []*Fetcher) {
 		}
 		links := fetchLinks(succeeded)
 		if len(links) == 1 {
-			clog.Log(LevelSuccess).Link("repository", links[0].URL, links[0].Text).Msg("Fetched")
+			clog.Success().Link("repository", links[0].URL, links[0].Text).Msg("Fetched")
 		} else {
-			clog.Log(LevelSuccess).
+			clog.Success().
 				Links("repositories", links).
 				Int("total", len(links)).
 				Msg("Fetched")
@@ -541,7 +541,7 @@ func logFetchResult(all, failed []*Fetcher) {
 
 func executeClones(ctx context.Context, cli *CLI, baseDir string, targets []CloneTarget) error {
 	cloners, fetchers, err := prepareCloners(targets, prepareCloneOpts{
-		Warn:          !cli.Quiet,
+		Notice:        !cli.Quiet,
 		CreateParents: !cli.DryRun,
 		Force:         cli.Force,
 		Fetch:         cli.Fetch || cli.Pull,
@@ -588,7 +588,7 @@ func executeClones(ctx context.Context, cli *CLI, baseDir string, targets []Clon
 }
 
 type prepareCloneOpts struct {
-	Warn          bool
+	Notice        bool
 	CreateParents bool
 	Force         bool
 	Fetch         bool
@@ -643,7 +643,7 @@ func prepareCloners(
 		}
 		cloners = append(cloners, NewCloner(target))
 	}
-	if opts.Warn && len(skipped) > 0 {
+	if opts.Notice && len(skipped) > 0 {
 		links := make([]clog.Link, len(skipped))
 		clones := make([]*Cloner, len(skipped))
 		for i, t := range skipped {
@@ -651,10 +651,10 @@ func prepareCloners(
 			clones[i] = NewCloner(t)
 		}
 		if len(links) == 1 {
-			e := clog.Warn().Link("repository", links[0].URL, links[0].Text)
+			e := clog.Notice().Link("repository", links[0].URL, links[0].Text)
 			addCloneRefLinks(e, clones).Msg("Skipping")
 		} else {
-			e := clog.Warn().Links("repositories", links)
+			e := clog.Notice().Links("repositories", links)
 			addCloneRefLinks(e, clones).Msg("Skipping")
 		}
 	}
@@ -876,7 +876,7 @@ func (c *Cloner) Run(
 		update.SetTotal(1).SetProgress(1).Send()
 		update.Msg("Cloned").
 			SetSymbol("✔︎").
-			SetLevel(LevelSuccess).
+			SetLevel(clog.LevelSuccess).
 			SetTotal(1).
 			SetProgress(1).
 			Send()
@@ -1118,7 +1118,7 @@ func (f *Fetcher) Run(
 		update.SetTotal(1).SetProgress(1).Send()
 		update.Msg("Fetched").
 			SetSymbol("✔︎").
-			SetLevel(LevelSuccess).
+			SetLevel(clog.LevelSuccess).
 			SetTotal(1).
 			SetProgress(1).
 			Send()
