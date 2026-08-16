@@ -1,7 +1,7 @@
 module github.com/gechr/clone
 
 // @clover
-go 1.26.5
+go 1.26.6
 
 tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
@@ -14,7 +14,7 @@ require (
 	github.com/gechr/clive v0.4.10
 	github.com/gechr/clog v0.17.0
 	github.com/gechr/conductor v0.1.17
-	github.com/gechr/x v0.5.17
+	github.com/gechr/x v0.5.19
 	github.com/stretchr/testify v1.11.1
 )
 
