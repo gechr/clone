@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"reflect"
 	"testing"
 
 	"github.com/alecthomas/kong"
@@ -38,7 +39,7 @@ func parseArgs(parser *kong.Kong, args []string) error {
 	if err != nil {
 		return err
 	}
-	cli, ok := parser.Model.Target.Addr().Interface().(*CLI)
+	cli, ok := reflect.TypeAssert[*CLI](parser.Model.Target.Addr())
 	if !ok {
 		return fmt.Errorf("parser target is not *CLI")
 	}
