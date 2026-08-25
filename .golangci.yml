@@ -6,6 +6,7 @@ linters:
     - err113 # noisy
     - errchkjson # noisy
     - exhaustruct # noisy
+    - exhaustruct_v5 # noisy
     - funcorder # noisy
     - funlen # noisy
     - gochecknoglobals # lipgloss styles are globals
