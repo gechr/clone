@@ -21,6 +21,8 @@ import (
 	"github.com/gechr/clog/fx"
 	"github.com/gechr/clog/fx/bar"
 	"github.com/gechr/clog/fx/bar/widget"
+	"github.com/gechr/clog/style"
+	"github.com/gechr/clog/theme"
 	"github.com/gechr/x/human"
 	xos "github.com/gechr/x/os"
 	xstrings "github.com/gechr/x/strings"
@@ -219,10 +221,31 @@ const (
 	transferStatsDelay = 10 * time.Second
 )
 
+// Resolve once before concurrent bars start, using the same theme environment
+// and background detection as clog's field colours.
+var cloneBarStyle = sync.OnceValue(func() bar.Config {
+	config := bar.Thin
+	if clog.Default().Output().ColorsDisabled() {
+		return config
+	}
+
+	pair, err := theme.FromEnv()
+	if err != nil || pair == nil {
+		pair = theme.DefaultPair()
+	}
+	background := pair.Auto().Background
+	config.ProgressGradient = style.PercentGradientFor(background)
+	if background == theme.BackgroundLight {
+		config.StyleEmpty = new(lipgloss.NewStyle().Foreground(lipgloss.Color("#c4c4c4")))
+	}
+	return config
+})
+
 func cloneBarOptions(verbose bool, stats *atomic.Pointer[transferStats]) []bar.Option {
+	config := cloneBarStyle()
 	percentWidget := widget.Percent(
 		widget.WithMinimumPercent(1),
-		widget.WithProgressGradient(bar.DefaultGradient()...),
+		widget.WithProgressGradient(config.ProgressGradient...),
 	)
 	dim := new(lipgloss.NewStyle().Faint(true))
 	rightWidget := widget.Widgets(
@@ -231,9 +254,8 @@ func cloneBarOptions(verbose bool, stats *atomic.Pointer[transferStats]) []bar.O
 	)
 
 	return []bar.Option{
-		bar.WithConfig(bar.Thin),
+		bar.WithConfig(config),
 		bar.WithPendingMode(bar.PendingHide),
-		bar.WithProgressGradient(bar.DefaultGradient()...),
 		bar.WithWidgetLeft(widget.None()),
 		bar.WithWidgetRight(rightWidget),
 		bar.WithMaxWidth(15), //nolint:mnd // bar width
