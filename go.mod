@@ -9,11 +9,11 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/alecthomas/kong v1.16.1
 	github.com/caarlos0/env/v11 v11.4.1
-	github.com/cli/go-gh/v2 v2.16.0
-	github.com/gechr/clib v0.7.17
-	github.com/gechr/clive v0.4.10
+	github.com/cli/go-gh/v2 v2.16.1
+	github.com/gechr/clib v0.7.19
+	github.com/gechr/clive v0.4.11
 	github.com/gechr/clog v0.17.1
-	github.com/gechr/conductor v0.1.17
+	github.com/gechr/conductor v0.1.18
 	github.com/gechr/forge v0.0.5
 	github.com/gechr/gorules v0.0.3
 	github.com/gechr/x v0.6.0
