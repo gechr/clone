@@ -2,6 +2,8 @@ version: 2
 
 updates:
   - package-ecosystem: github-actions
+    commit-message:
+      prefix: deps
     cooldown:
       default-days: 7
     directory: /
@@ -15,6 +17,8 @@ updates:
       - dependency-name: gechr/actions
 
   - package-ecosystem: gomod
+    commit-message:
+      prefix: deps
     cooldown:
       default-days: 7
     directory: /
