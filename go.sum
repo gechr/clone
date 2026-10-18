@@ -164,8 +164,8 @@ github.com/chzyer/readline v0.0.0-20180603132655-2972be24d48e/go.mod h1:nSuG5e5P
 github.com/chzyer/test v0.0.0-20180213035817-a1ea475d72b1/go.mod h1:Q3SI9o4m/ZMnBNeIyt5eFwwo7qiLfzFZmjNmxjkiQlU=
 github.com/ckaznocha/intrange v0.3.1 h1:j1onQyXvHUsPWujDH6WIjhyH26gkRt/txNlV7LspvJs=
 github.com/ckaznocha/intrange v0.3.1/go.mod h1:QVepyz1AkUoFQkpEqksSYpNpUo3c5W7nWh/s6SHIJJk=
-github.com/cli/go-gh/v2 v2.16.1 h1:t8s29LToBmYjXeDXUnK7Wdm7NkYSyzGZK3t4Doa6GX0=
-github.com/cli/go-gh/v2 v2.16.1/go.mod h1:OaJTFtHJapQq670h/3L0vqm4NwZGoJmSAVctWiY+3pQ=
+github.com/cli/go-gh/v2 v2.16.2 h1:Qsb8GsS4QQWjupxcMutrj5tl2cJs6HubyDM0xQ4qsII=
+github.com/cli/go-gh/v2 v2.16.2/go.mod h1:OaJTFtHJapQq670h/3L0vqm4NwZGoJmSAVctWiY+3pQ=
 github.com/cli/safeexec v1.0.1 h1:e/C79PbXF4yYTN/wauC4tviMxEV13BwljGj0N9j+N00=
 github.com/cli/safeexec v1.0.1/go.mod h1:Z/D4tTN8Vs5gXYHDCbaM1S/anmEDnJb1iW0+EJ5zx3Q=
 github.com/cli/shurcooL-graphql v0.0.4 h1:6MogPnQJLjKkaXPyGqPRXOI2qCsQdqNfUY1QSJu2GuY=
@@ -212,8 +212,8 @@ github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/fzipp/gocyclo v0.6.0 h1:lsblElZG7d3ALtGMx9fmxeTKZaLLpU8mET09yN4BBLo=
 github.com/fzipp/gocyclo v0.6.0/go.mod h1:rXPyn8fnlpa0R2csP/31uerbiVBugk5whMdlyaLkLoA=
-github.com/gechr/clib v0.7.20 h1:Laoi/AJp1MSM5WxItwsKsw5SvoTGkh2u5d72goS0L1M=
-github.com/gechr/clib v0.7.20/go.mod h1:5s3957iLkJ3sN4UPN4etEuodM85WZbXXYWcvc/Oz7Mg=
+github.com/gechr/clib v0.7.21 h1:OumJRglOFUsPBmTz9aR3zGAV7pduHzf1RR/SpMTqOrY=
+github.com/gechr/clib v0.7.21/go.mod h1:5s3957iLkJ3sN4UPN4etEuodM85WZbXXYWcvc/Oz7Mg=
 github.com/gechr/clive v0.4.11 h1:An/IM/yOF2S88SmoKd1VXEMU/90Zq6UZ+kPlsmGerRQ=
 github.com/gechr/clive v0.4.11/go.mod h1:nUUrL0F4qz9yCemb/wsRCo1GqtE+pk422LTzA7eniNI=
 github.com/gechr/clog v0.17.2 h1:CvsxpeiL/QSSI9YeLtqaSsgHjvZLjSx5w7O41pIhzbQ=

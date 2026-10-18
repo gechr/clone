@@ -9,8 +9,8 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/alecthomas/kong v1.16.1
 	github.com/caarlos0/env/v11 v11.4.1
-	github.com/cli/go-gh/v2 v2.16.1
-	github.com/gechr/clib v0.7.20
+	github.com/cli/go-gh/v2 v2.16.2
+	github.com/gechr/clib v0.7.21
 	github.com/gechr/clive v0.4.11
 	github.com/gechr/clog v0.17.2
 	github.com/gechr/conductor v0.1.18
