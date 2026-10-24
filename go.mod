@@ -1,7 +1,7 @@
 module github.com/gechr/clone
 
 // @clover
-go 1.27.2
+go 1.27.3
 
 tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
@@ -9,14 +9,14 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/alecthomas/kong v1.16.1
 	github.com/caarlos0/env/v11 v11.4.1
-	github.com/cli/go-gh/v2 v2.16.2
-	github.com/gechr/clib v0.8.1
-	github.com/gechr/clive v0.4.11
-	github.com/gechr/clog v0.17.3
-	github.com/gechr/conductor v0.1.18
-	github.com/gechr/forge v0.0.5
+	github.com/cli/go-gh/v2 v2.17.0
+	github.com/gechr/clib v0.8.2
+	github.com/gechr/clive v0.4.13
+	github.com/gechr/clog v0.17.4
+	github.com/gechr/conductor v0.1.20
+	github.com/gechr/forge v0.0.7
 	github.com/gechr/gorules v0.0.4
-	github.com/gechr/x v0.6.3
+	github.com/gechr/x v0.6.4
 	github.com/quasilyte/go-ruleguard/dsl v0.3.23
 	github.com/stretchr/testify v1.12.1
 )
@@ -207,7 +207,7 @@ require (
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/tetafro/godot v1.5.6 // indirect
-	github.com/thlib/go-timezone-local v0.0.8 // indirect
+	github.com/thlib/go-timezone-local v0.0.9 // indirect
 	github.com/timakin/bodyclose v0.0.0-20260723120731-857993a2939c // indirect
 	github.com/timonwong/loggercheck v0.13.0 // indirect
 	github.com/tomarrell/wrapcheck/v2 v2.13.0 // indirect
@@ -235,7 +235,7 @@ require (
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/term v0.47.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
