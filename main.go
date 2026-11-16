@@ -42,7 +42,7 @@ func (e *userError) Error() string { return e.msg }
 
 // isCanceled reports whether err (or the context) indicates a signal cancellation.
 func isCanceled(ctx context.Context, err error) bool {
-	return errors.Is(context.Cause(ctx), errInterrupted) || errors.Is(err, context.Canceled)
+	return ctx.Err() != nil || errors.Is(err, context.Canceled)
 }
 
 func main() {
@@ -119,6 +119,37 @@ func (c *CLI) Run(kctx *kong.Context, app *conductor.Runtime) error {
 		return nil
 	}
 
+	clog.SetProgramStatus(clog.ProgramStatus{
+		State:   clog.ProgramStateWorking,
+		App:     "clone",
+		Message: "Resolving repositories",
+	})
+	err := c.run()
+	clog.SetProgramStatus(completionStatus(err, c.doneStatus))
+	return err
+}
+
+// completionStatus maps run's result to the final program status. doneMessage
+// replaces the generic success message when non-empty.
+func completionStatus(err error, doneMessage string) clog.ProgramStatus {
+	status := clog.ProgramStatus{State: clog.ProgramStateDone, App: "clone", Message: "Complete"}
+	if doneMessage != "" {
+		status.Message = doneMessage
+	}
+	var ue *userError
+	switch {
+	case errors.Is(err, context.Canceled), errors.Is(err, errInterrupted),
+		errors.As(err, &ue) && ue.exitCode == exitCodeSignal:
+		status.State = clog.ProgramStateIdle
+		status.Message = "Cancelled"
+	case err != nil:
+		status.State = clog.ProgramStateError
+		status.Message = "Failed"
+	}
+	return status
+}
+
+func (c *CLI) run() error {
 	dryRunColor = resolveColorEnabled(c.Color)
 
 	envCfg, envErr := loadEnvConfig()

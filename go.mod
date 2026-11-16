@@ -6,17 +6,17 @@ go 1.27.4
 tool github.com/golangci/golangci-lint/v2/cmd/golangci-lint
 
 require (
-	charm.land/lipgloss/v2 v2.1.0
+	charm.land/lipgloss/v2 v2.1.1
 	github.com/alecthomas/kong v1.17.0
 	github.com/caarlos0/env/v11 v11.4.2
 	github.com/cli/go-gh/v2 v2.17.0
 	github.com/gechr/clib v0.8.6
 	github.com/gechr/clive v0.4.15
-	github.com/gechr/clog v0.17.7
+	github.com/gechr/clog v0.18.0
 	github.com/gechr/conductor v0.1.22
 	github.com/gechr/forge v0.0.9
 	github.com/gechr/gorules v0.0.4
-	github.com/gechr/x v0.6.6
+	github.com/gechr/x v0.7.1
 	github.com/quasilyte/go-ruleguard/dsl v0.3.23
 	github.com/stretchr/testify v1.12.1
 )

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +14,46 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestCompletionStatus(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name    string
+		err     error
+		done    string
+		state   clog.ProgramState
+		message string
+	}{
+		{name: "success", state: clog.ProgramStateDone, message: "Complete"},
+		{name: "success with label", done: "Cloned repositories", state: clog.ProgramStateDone, message: "Cloned repositories"},
+		{name: "failure ignores label", err: errSilent, done: "Cloned repositories", state: clog.ProgramStateError, message: "Failed"},
+		{name: "failure", err: errSilent, state: clog.ProgramStateError, message: "Failed"},
+		{name: "usage", err: &userError{exitCode: exitCodeUsage}, state: clog.ProgramStateError, message: "Failed"},
+		{name: "canceled", err: context.Canceled, state: clog.ProgramStateIdle, message: "Cancelled"},
+		{name: "interrupted", err: errInterrupted, state: clog.ProgramStateIdle, message: "Cancelled"},
+		{name: "signal", err: &userError{exitCode: exitCodeSignal}, state: clog.ProgramStateIdle, message: "Cancelled"},
+		{name: "wrapped signal", err: fmt.Errorf("operation: %w", &userError{exitCode: exitCodeSignal}), state: clog.ProgramStateIdle, message: "Cancelled"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			assert.Equal(t, clog.ProgramStatus{
+				State: tt.state, App: "clone", Message: tt.message,
+			}, completionStatus(tt.err, tt.done))
+		})
+	}
+}
+
+func TestIsCanceled(t *testing.T) {
+	t.Parallel()
+
+	canceled, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	assert.True(t, isCanceled(canceled, errSilent))
+	assert.True(t, isCanceled(t.Context(), fmt.Errorf("list: %w", context.Canceled)))
+	assert.False(t, isCanceled(t.Context(), errSilent))
+}
 
 // TestMain replaces ghOwnerLookup with a fail-fast stub so any test that
 // reaches the GitHub owner lookup path without explicitly stubbing it fails

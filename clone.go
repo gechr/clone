@@ -587,6 +587,14 @@ func executeClones(ctx context.Context, cli *CLI, baseDir string, targets []Clon
 		return nil
 	}
 
+	activeLabel, doneLabel := groupFooterLabel(cloners, fetchers)
+	clog.SetProgramStatus(clog.ProgramStatus{
+		State:   clog.ProgramStateWorking,
+		App:     "clone",
+		Message: activeLabel + " repositories",
+	})
+	cli.doneStatus = doneLabel + " repositories"
+
 	var execErr error
 	if cli.Quiet {
 		execErr = executeQuiet(ctx, baseDir, cloners, fetchers, cli.Parallelism)

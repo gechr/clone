@@ -86,6 +86,7 @@ type CLI struct {
 	binGit      string `kong:"-"`
 	binJJ       string `kong:"-"`
 	explicitVCS bool   `kong:"-"`
+	doneStatus  string `kong:"-"`
 
 	forge       forge.Forge `kong:"-"`
 	StarsFilter rangeFilter `kong:"-"`
