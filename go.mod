@@ -10,10 +10,10 @@ require (
 	github.com/alecthomas/kong v1.17.0
 	github.com/caarlos0/env/v11 v11.4.2
 	github.com/cli/go-gh/v2 v2.17.0
-	github.com/gechr/clib v0.8.7
+	github.com/gechr/clib v0.9.0
 	github.com/gechr/clive v0.4.16
-	github.com/gechr/clog v0.18.1
-	github.com/gechr/conductor v0.1.23
+	github.com/gechr/clog v0.19.1
+	github.com/gechr/conductor v0.2.0
 	github.com/gechr/forge v0.0.10
 	github.com/gechr/gorules v0.0.5
 	github.com/gechr/x v0.7.2
@@ -70,7 +70,7 @@ require (
 	github.com/charithe/durationcheck v0.0.11 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260811164956-006e29f97886 // indirect
-	github.com/charmbracelet/x/ansi v0.11.9 // indirect
+	github.com/charmbracelet/x/ansi v0.11.10 // indirect
 	github.com/charmbracelet/x/term v0.2.2 // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
@@ -231,12 +231,12 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect
-	golang.org/x/mod v0.42.0 // indirect
-	golang.org/x/sync v0.24.0 // indirect
+	golang.org/x/mod v0.43.0 // indirect
+	golang.org/x/sync v0.25.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/term v0.48.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
-	golang.org/x/tools v0.52.0 // indirect
+	golang.org/x/tools v0.53.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

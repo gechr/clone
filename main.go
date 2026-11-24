@@ -58,7 +58,7 @@ func main() {
 			brew.WithFormula("clone"),
 			brew.WithTap("gechr/tap"),
 		),
-		NotifyOptions: []notify.Option{notify.WithOutdatedHintCommand("clone --self-update")},
+		NotifyOptions: []notify.Option{notify.WithOutdatedHintCommand("clone +update")},
 		ConfigureLog:  configureClog,
 	})
 
