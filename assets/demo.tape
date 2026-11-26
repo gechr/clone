@@ -1,27 +1,15 @@
-Output assets/demo.gif
-
-Set Shell bash
-Set FontSize 22
-Set Framerate 60
-Set Padding 15
-Set Margin 10
-Set MarginFill "#674EFF"
-Set BorderRadius 10
-Set PlaybackSpeed 0.5
-Set TypingSpeed 10ms
+Set Columns 70
+Set Rows 24
+Set LineHeight 0.82
 Set Theme "Dracula"
-Set Width 1250
-Set Height 750
-
-Env COLORTERM "truecolor"
-Env PS1 "\[\e[38;5;208m\]$\[\e[0m\] "
+Set WaitTimeout 2m
+Source assets/base.tape
 
 Hide
-Type "tput civis && go build -o /tmp/clone-demo ."
+Type@0 'cd "$DEMO_DIR/repos" && clear && ../bin/clone -O charmbracelet --vcs=git --exclude=vhs --height=0.95'
 Enter
-Wait /^\$$/
-Type "tput civis && clear && /tmp/clone-demo -O charmbracelet --temp --quick --vcs=git --exclude=vhs --height=0.95 && sleep 5 && clear"
-Enter
-Sleep 500ms
+Wait+Screen /Fetch(ing|ed) +owner=/
+Sleep 80ms
 Show
-Wait /^\$$/
+Wait+Screen "total="
+Wait /^0$/

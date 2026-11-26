@@ -20,8 +20,13 @@ DIST_DIR ?= dist
 
 .PHONY: demo
 demo:
-	@vhs assets/demo.tape >/dev/null
-	@vhs assets/help.tape >/dev/null
+	@set -eu; \
+	  DEMO_DIR=$$(mktemp -d); export DEMO_DIR; \
+	  trap 'rm -rf "$$DEMO_DIR"' EXIT; \
+	  mkdir "$$DEMO_DIR/repos"; \
+	  $(MAKE) --no-print-directory build DIST_DIR="$$DEMO_DIR/bin"; \
+	  reel run assets/help.tape -o assets/help.png; \
+	  reel run assets/demo.tape --padding=15 --hold-last=1500ms -o assets/demo.gif
 
 .PHONY: build
 build:
